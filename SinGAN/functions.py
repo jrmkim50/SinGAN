@@ -12,14 +12,19 @@ from skimage import color, morphology, filters
 from SinGAN.imresize import imresize
 import os
 import random
+import nibabel as nib
 from sklearn.cluster import KMeans
 
 
 # custom weights initialization called on netG and netD
 
 def read_image(opt):
-    x = img.imread('%s%s' % (opt.input_img,opt.ref_image))
+    x = img.imread('%s%s' % (opt.input_dir,opt.input_name))
     return np2torch(x)
+
+def read_image3D(opt):
+    x = nib.load('%s%s' % (opt.input_dir,opt.input_name)).get_fdata()
+    return np2torch3D(x)
 
 def denorm(x):
     out = (x + 1) / 2
@@ -174,6 +179,24 @@ def np2torch(x,opt):
     x = norm(x)
     return x
 
+def np2torch3D(x,opt):
+    if opt.nc_im == 2:
+        # x starts as w,h,d,channels
+        x = x[:,:,:,:,None]
+        # x is now batch,channels,w,h,d and is in 0-1 range
+        x = x.transpose((4, 3, 0, 1, 2))
+    else:
+        x = color.rgb2gray(x)
+        x = x[:,:,None,None]
+        x = x.transpose(3, 2, 0, 1)
+    x = torch.from_numpy(x)
+    if not(opt.not_cuda):
+        x = move_to_gpu(x)
+    x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
+    #x = x.type(torch.FloatTensor)
+    x = norm(x)
+    return x
+
 def torch2uint8(x):
     x = x[0,:,:,:]
     x = x.permute((1,2,0))
@@ -193,8 +216,15 @@ def save_networks(netG,netD,z,opt):
     torch.save(z, '%s/z_opt.pth' % (opt.outf))
 
 def adjust_scales2image(real_,opt):
+    # real_: [batch_size, channels, width, height] (old)
+    # real_: [batch_size, channels, width, height, depth] (new)
     #opt.num_scales = int((math.log(math.pow(opt.min_size / (real_.shape[2]), 1), opt.scale_factor_init))) + 1
-    opt.num_scales = math.ceil((math.log(math.pow(opt.min_size / (min(real_.shape[2], real_.shape[3])), 1), opt.scale_factor_init))) + 1
+    opt.num_scales = math.ceil(
+        (math.log(
+            opt.min_size / (min(real_.shape[2], real_.shape[3])),
+            opt.scale_factor_init
+        ))
+    ) + 1
     scale2stop = math.ceil(math.log(min([opt.max_size, max([real_.shape[2], real_.shape[3]])]) / max([real_.shape[2], real_.shape[3]]),opt.scale_factor_init))
     opt.stop_scale = opt.num_scales - scale2stop
     opt.scale1 = min(opt.max_size / max([real_.shape[2], real_.shape[3]]),1)  # min(250/max([real_.shape[0],real_.shape[1]]),1)
