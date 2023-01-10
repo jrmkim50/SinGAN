@@ -1,5 +1,8 @@
 # Don't track content of these folders
 Output/
 TrainedModels/
-__pycache__/
+*/__pycache__/
 .idea
+*.ipynb
+.ipynb_checkpoints/
+singan_env
