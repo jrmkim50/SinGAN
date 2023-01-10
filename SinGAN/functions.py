@@ -180,15 +180,10 @@ def np2torch(x,opt):
     return x
 
 def np2torch3D(x,opt):
-    if opt.nc_im == 2:
-        # x starts as w,h,d,channels
-        x = x[:,:,:,:,None]
-        # x is now batch,channels,w,h,d and is in 0-1 range
-        x = x.transpose((4, 3, 0, 1, 2))
-    else:
-        x = color.rgb2gray(x)
-        x = x[:,:,None,None]
-        x = x.transpose(3, 2, 0, 1)
+    # x starts as w,h,d,channels
+    x = x[:,:,:,:,None]
+    # x is now batch,channels,w,h,d and is in 0-1 range
+    x = x.transpose((4, 3, 0, 1, 2))
     x = torch.from_numpy(x)
     if not(opt.not_cuda):
         x = move_to_gpu(x)
