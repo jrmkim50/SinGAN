@@ -4,7 +4,6 @@ import numpy as np
 from scipy.ndimage import filters, measurements, interpolation
 from skimage import color
 from math import pi
-from SinGAN.functions import np2torch3D
 import torch
 
 
@@ -34,6 +33,19 @@ def np2torch(x,opt):
         x = move_to_gpu(x)
     x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
     #x = x.type(torch.cuda.FloatTensor)
+    x = norm(x)
+    return x
+
+def np2torch3D(x,opt):
+    # x starts as w,h,d,channels
+    x = x[:,:,:,:,None]
+    # x is now batch,channels,w,h,d and is in 0-1 range
+    x = x.transpose((4, 3, 0, 1, 2))
+    x = torch.from_numpy(x)
+    if not(opt.not_cuda):
+        x = move_to_gpu(x)
+    x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
+    #x = x.type(torch.FloatTensor)
     x = norm(x)
     return x
 
