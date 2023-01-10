@@ -101,7 +101,7 @@ def generate_noise(size,num_samp=1,device='cuda',type='gaussian', scale=1):
 def generate_noise3D(size,num_samp=1,device='cuda',type='gaussian', scale=1):
     if type == 'gaussian':
         noise = torch.randn(num_samp, size[0], round(size[1]/scale), round(size[2]/scale), round(size[3]/scale), device=device)
-        noise = upsampling(noise,size[1],size[2],size[3])
+        noise = upsampling3D(noise,size[1],size[2],size[3])
     if type =='gaussian_mixture':
         noise1 = torch.randn(num_samp, size[0], size[1], size[2], size[3], device=device)+5
         noise2 = torch.randn(num_samp, size[0], size[1], size[2], size[3], device=device)
