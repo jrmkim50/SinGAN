@@ -4,7 +4,7 @@ import numpy as np
 from scipy.ndimage import filters, measurements, interpolation
 from skimage import color
 from math import pi
-#from SinGAN.functions import torch2uint8, np2torch
+from SinGAN.functions import np2torch3D
 import torch
 
 
@@ -39,6 +39,7 @@ def np2torch(x,opt):
 
 def torch2uint8(x):
     x = x[0,:,:,:]
+    # now it's [channel,w,h]
     x = x.permute((1,2,0))
     x = 255*denorm(x)
     x = x.cpu().numpy()
@@ -51,6 +52,18 @@ def imresize(im,scale,opt):
     im = torch2uint8(im)
     im = imresize_in(im, scale_factor=scale)
     im = np2torch(im,opt)
+    #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
+    return im
+
+def imresize3D(im,scale,opt):
+    #s = im.shape
+    im = im[0]
+    # [channel,w,h,d]
+    im = im.permute((1,2,3,0))
+    im = denorm(im)
+    im = im.cpu().numpy()
+    im = imresize_in(im, scale_factor=scale)
+    im = np2torch3D(im,opt)
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
     return im
 
@@ -111,7 +124,7 @@ def fix_scale_and_size(input_shape, output_shape, scale_factor):
     if scale_factor is not None:
         # By default, if scale-factor is a scalar we assume 2d resizing and duplicate it.
         if np.isscalar(scale_factor):
-            scale_factor = [scale_factor, scale_factor]
+            scale_factor = [scale_factor, scale_factor, scale_factor]
 
         # We extend the size of scale-factor list to the size of the input by assigning 1 to all the unspecified scales
         scale_factor = list(scale_factor)
