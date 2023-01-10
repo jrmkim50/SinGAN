@@ -9,6 +9,7 @@ if __name__ == '__main__':
     parser.add_argument('--input_dir', help='input image dir', default='Input/Images')
     parser.add_argument('--input_name', help='input image name', required=True)
     parser.add_argument('--mode', help='task to be done', default='train')
+    parser.add_argument('--device_num', help='task to be done', default=0)
     opt = parser.parse_args()
     opt = functions.post_config(opt)
     Gs = []
