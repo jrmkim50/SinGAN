@@ -96,7 +96,7 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
         m = nn.ConstantPad3d(int(pad1), 0)
         nzx = (Z_opt.shape[2]-pad1*2)*scale_v
         nzy = (Z_opt.shape[3]-pad1*2)*scale_h
-        nzz = (Z_opt.shape[3]-pad1*2)*scale_z
+        nzz = (Z_opt.shape[4]-pad1*2)*scale_z
 
         images_prev = images_cur
         images_cur = []
