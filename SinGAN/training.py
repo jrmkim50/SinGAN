@@ -6,14 +6,14 @@ import torch.optim as optim
 import torch.utils.data
 import math
 import matplotlib.pyplot as plt
-from SinGAN.imresize import imresize
+from SinGAN.imresize import imresize, imresize3D
 
 def train(opt,Gs,Zs,reals,NoiseAmp):
-    real_ = functions.read_image(opt)
+    real_ = functions.read_image3D(opt)
     in_s = 0
     scale_num = 0
-    real = imresize(real_,opt.scale1,opt)
-    reals = functions.creat_reals_pyramid(real,reals,opt)
+    real = imresize3D(real_,opt.scale1,opt)
+    reals = functions.creat_reals_pyramid3D(real,reals,opt)
     nfc_prev = 0
 
     while scale_num<opt.stop_scale+1:
@@ -36,7 +36,7 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
             G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
 
-        z_curr,in_s,G_curr = train_single_scale(D_curr,G_curr,reals,Gs,Zs,in_s,NoiseAmp,opt)
+        z_curr,in_s,G_curr = train_single_scale3D(D_curr,G_curr,reals,Gs,Zs,in_s,NoiseAmp,opt)
 
         G_curr = functions.reset_grads(G_curr,False)
         G_curr.eval()
@@ -59,11 +59,12 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
 
 
 
-def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
-
-    real = reals[len(Gs)]
+def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
+    real = reals3D[len(Gs)]
+    # batch,channels,w,h,d
     opt.nzx = real.shape[2]#+(opt.ker_size-1)*(opt.num_layer)
     opt.nzy = real.shape[3]#+(opt.ker_size-1)*(opt.num_layer)
+    opt.nzz = real.shape[4]#+(opt.ker_size-1)*(opt.num_layer)
     opt.receptive_field = opt.ker_size + ((opt.ker_size-1)*(opt.num_layer-1))*opt.stride
     pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2)
     pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2)
@@ -71,14 +72,14 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
         opt.nzx = real.shape[2]+(opt.ker_size-1)*(opt.num_layer)
         opt.nzy = real.shape[3]+(opt.ker_size-1)*(opt.num_layer)
         pad_noise = 0
-    m_noise = nn.ZeroPad2d(int(pad_noise))
-    m_image = nn.ZeroPad2d(int(pad_image))
+    m_noise3D = nn.ConstantPad3d(int(pad_noise), 0)
+    m_image3D = nn.ConstantPad3d(int(pad_image), 0)
 
     alpha = opt.alpha
 
-    fixed_noise = functions.generate_noise([opt.nc_z,opt.nzx,opt.nzy],device=opt.device)
-    z_opt = torch.full(fixed_noise.shape, 0, device=opt.device)
-    z_opt = m_noise(z_opt)
+    fixed_noise3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz],device=opt.device)
+    z_opt3D = torch.full(fixed_noise3D.shape, 0, device=opt.device)
+    z_opt3D = m_noise3D(z_opt3D)
 
     # setup optimizer
     optimizerD = optim.Adam(netD.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
@@ -94,13 +95,13 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
 
     for epoch in range(opt.niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
-            z_opt = functions.generate_noise([1,opt.nzx,opt.nzy], device=opt.device)
-            z_opt = m_noise(z_opt.expand(1,3,opt.nzx,opt.nzy))
-            noise_ = functions.generate_noise([1,opt.nzx,opt.nzy], device=opt.device)
-            noise_ = m_noise(noise_.expand(1,3,opt.nzx,opt.nzy))
+            z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
+            z_opt3D = m_noise3D(z_opt3D.expand(1,opt.ncz,opt.nzx,opt.nzy,opt.nzz))
+            noise_3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
+            noise_3D = m_noise3D(noise_3D.expand(1,opt.ncz,opt.nzx,opt.nzy,opt.nzz))
         else:
-            noise_ = functions.generate_noise([opt.nc_z,opt.nzx,opt.nzy], device=opt.device)
-            noise_ = m_noise(noise_)
+            noise_3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
+            noise_3D = m_noise3D(noise_3D)
 
         ############################
         # (1) Update D network: maximize D(x) + D(G(z))
@@ -118,41 +119,41 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             # train with fake
             if (j==0) & (epoch == 0):
                 if (Gs == []) & (opt.mode != 'SR_train'):
-                    prev = torch.full([1,opt.nc_z,opt.nzx,opt.nzy], 0, device=opt.device)
+                    prev = torch.full([1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
                     in_s = prev
-                    prev = m_image(prev)
-                    z_prev = torch.full([1,opt.nc_z,opt.nzx,opt.nzy], 0, device=opt.device)
-                    z_prev = m_noise(z_prev)
+                    prev = m_image3D(prev)
+                    z_prev3D = torch.full([1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
+                    z_prev3D = m_noise3D(z_prev3D)
                     opt.noise_amp = 1
                 elif opt.mode == 'SR_train':
-                    z_prev = in_s
+                    z_prev3D = in_s
                     criterion = nn.MSELoss()
-                    RMSE = torch.sqrt(criterion(real, z_prev))
+                    RMSE = torch.sqrt(criterion(real, z_prev3D))
                     opt.noise_amp = opt.noise_amp_init * RMSE
-                    z_prev = m_image(z_prev)
-                    prev = z_prev
+                    z_prev3D = m_image3D(z_prev3D)
+                    prev = z_prev3D
                 else:
-                    prev = draw_concat(Gs,Zs,reals,NoiseAmp,in_s,'rand',m_noise,m_image,opt)
-                    prev = m_image(prev)
-                    z_prev = draw_concat(Gs,Zs,reals,NoiseAmp,in_s,'rec',m_noise,m_image,opt)
+                    prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
+                    prev = m_image3D(prev)
+                    z_prev3D = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rec',m_noise3D,m_image3D,opt)
                     criterion = nn.MSELoss()
-                    RMSE = torch.sqrt(criterion(real, z_prev))
+                    RMSE = torch.sqrt(criterion(real, z_prev3D))
                     opt.noise_amp = opt.noise_amp_init*RMSE
-                    z_prev = m_image(z_prev)
+                    z_prev3D = m_image3D(z_prev3D)
             else:
-                prev = draw_concat(Gs,Zs,reals,NoiseAmp,in_s,'rand',m_noise,m_image,opt)
-                prev = m_image(prev)
+                prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
+                prev = m_image3D(prev)
 
-            if opt.mode == 'paint_train':
-                prev = functions.quant2centers(prev,centers)
-                plt.imsave('%s/prev.png' % (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
+            # if opt.mode == 'paint_train':
+            #     prev = functions.quant2centers(prev,centers)
+            #     plt.imsave('%s/prev.png' % (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
 
             if (Gs == []) & (opt.mode != 'SR_train'):
-                noise = noise_
+                noise3D = noise_3D
             else:
-                noise = opt.noise_amp*noise_+prev
+                noise3D = opt.noise_amp*noise_3D+prev
 
-            fake = netG(noise.detach(),prev)
+            fake = netG(noise3D.detach(),prev)
             output = netD(fake.detach())
             errD_fake = output.mean()
             errD_fake.backward(retain_graph=True)
@@ -171,6 +172,7 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
         ###########################
 
         for j in range(opt.Gsteps):
+            fake = netG(noise3D.detach(), prev.detach())
             netG.zero_grad()
             output = netD(fake)
             #D_fake_map = output.detach()
@@ -178,15 +180,15 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             errG.backward(retain_graph=True)
             if alpha!=0:
                 loss = nn.MSELoss()
-                if opt.mode == 'paint_train':
-                    z_prev = functions.quant2centers(z_prev, centers)
-                    plt.imsave('%s/z_prev.png' % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
-                Z_opt = opt.noise_amp*z_opt+z_prev
-                rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev),real)
+                # if opt.mode == 'paint_train':
+                #     z_prev = functions.quant2centers(z_prev, centers)
+                #     plt.imsave('%s/z_prev.png' % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
+                Z_opt = opt.noise_amp*z_opt3D+z_prev3D
+                rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D),real)
                 rec_loss.backward(retain_graph=True)
                 rec_loss = rec_loss.detach()
             else:
-                Z_opt = z_opt
+                Z_opt = z_opt3D
                 rec_loss = 0
 
             optimizerG.step()
@@ -198,25 +200,57 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
 
         if epoch % 25 == 0 or epoch == (opt.niter-1):
             print('scale %d:[%d/%d]' % (len(Gs), epoch, opt.niter))
+            print(errG)
+            print(errD)
 
         if epoch % 500 == 0 or epoch == (opt.niter-1):
-            plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np(fake.detach()), vmin=0, vmax=1)
-            plt.imsave('%s/G(z_opt).png'    % (opt.outf),  functions.convert_image_np(netG(Z_opt.detach(), z_prev).detach()), vmin=0, vmax=1)
-            #plt.imsave('%s/D_fake.png'   % (opt.outf), functions.convert_image_np(D_fake_map))
-            #plt.imsave('%s/D_real.png'   % (opt.outf), functions.convert_image_np(D_real_map))
-            #plt.imsave('%s/z_opt.png'    % (opt.outf), functions.convert_image_np(z_opt.detach()), vmin=0, vmax=1)
-            #plt.imsave('%s/prev.png'     %  (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
-            #plt.imsave('%s/noise.png'    %  (opt.outf), functions.convert_image_np(noise), vmin=0, vmax=1)
-            #plt.imsave('%s/z_prev.png'   % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
+            plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np3D(fake.detach()), vmin=0, vmax=1)
+            plt.imsave('%s/G(z_opt).png'    % (opt.outf),  functions.convert_image_np3D(netG(Z_opt.detach(), z_prev3D).detach()), vmin=0, vmax=1)
 
 
-            torch.save(z_opt, '%s/z_opt.pth' % (opt.outf))
+            torch.save(z_opt3D, '%s/z_opt.pth' % (opt.outf))
 
         schedulerD.step()
         schedulerG.step()
 
-    functions.save_networks(netG,netD,z_opt,opt)
-    return z_opt,in_s,netG    
+    functions.save_networks(netG,netD,z_opt3D,opt)
+    return z_opt3D,in_s,netG    
+
+def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
+    G_z = in_s
+    if len(Gs) > 0:
+        if mode == 'rand':
+            count = 0
+            pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2)
+            if opt.mode == 'animation_train':
+                pad_noise = 0
+            for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
+                if count == 0:
+                    z3D = functions.generate_noise3D([1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise], device=opt.device)
+                    z3D = z3D.expand(1, opt.nc_z, z3D.shape[2], z3D.shape[3], z3D.shape[4])
+                else:
+                    z3D = functions.generate_noise([opt.nc_z,Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise], device=opt.device)
+                z3D = m_noise3D(z3D)
+                G_z = G_z[:,:,0:real_curr.shape[2],0:real_curr.shape[3],0:real_curr.shape[4]]
+                G_z = m_image3D(G_z)
+                z_in = noise_amp*z3D+G_z
+                G_z = G(z_in.detach(),G_z)
+                G_z = imresize3D(G_z,1/opt.scale_factor,opt)
+                G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3],0:real_next.shape[4]]
+                count += 1
+        if mode == 'rec':
+            count = 0
+            for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
+                G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3], 0:real_curr.shape[4]]
+                G_z = m_image3D(G_z)
+                z_in = noise_amp*Z_opt+G_z
+                G_z = G(z_in.detach(),G_z)
+                G_z = imresize3D(G_z,1/opt.scale_factor,opt)
+                G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3],0:real_next.shape[4]]
+                #if count != (len(Gs)-1):
+                #    G_z = m_image(G_z)
+                count += 1
+    return G_z
 
 def draw_concat(Gs,Zs,reals,NoiseAmp,in_s,mode,m_noise,m_image,opt):
     G_z = in_s
@@ -281,7 +315,7 @@ def train_paint(opt,Gs,Zs,reals,NoiseAmp,centers,paint_inject_scale):
 
             D_curr,G_curr = init_models(opt)
 
-            z_curr,in_s,G_curr = train_single_scale(D_curr,G_curr,reals[:scale_num+1],Gs[:scale_num],Zs[:scale_num],in_s,NoiseAmp[:scale_num],opt,centers=centers)
+            z_curr,in_s,G_curr = train_single_scale3D(D_curr,G_curr,reals[:scale_num+1],Gs[:scale_num],Zs[:scale_num],in_s,NoiseAmp[:scale_num],opt,centers=centers)
 
             G_curr = functions.reset_grads(G_curr,False)
             G_curr.eval()
