@@ -126,8 +126,6 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
                 else:
                     I_prev = m(I_prev)
 
-            print(z_curr.size(), I_prev.size(), in_s.size(), n)
-
             if n < gen_start_scale:
                 z_curr = Z_opt
 
