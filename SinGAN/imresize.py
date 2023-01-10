@@ -60,10 +60,12 @@ def imresize3D(im,scale,opt):
     im = im[0]
     # [channel,w,h,d]
     im = im.permute((1,2,3,0))
+    # [w,h,d,channel]
     im = denorm(im)
     im = im.cpu().numpy()
     im = imresize_in(im, scale_factor=scale)
     im = np2torch3D(im,opt)
+    # [batch,channels,w,h,d]
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
     return im
 
