@@ -233,7 +233,7 @@ def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
                 z3D = m_noise3D(z3D)
                 G_z = G_z[:,:,0:real_curr.shape[2],0:real_curr.shape[3],0:real_curr.shape[4]]
                 G_z = m_image3D(G_z)
-                print(noise_amp.size(), z3D.size(), G_z.size(), real_curr.size())
+                print(z3D.size(), G_z.size(), real_curr.size())
                 z_in = noise_amp*z3D+G_z
                 G_z = G(z_in.detach(),G_z)
                 G_z = imresize3D(G_z,1/opt.scale_factor,opt)
