@@ -55,10 +55,10 @@ if __name__ == '__main__':
                 # n = opt.paint_start_scale
                 real_s = imresize(real, pow(opt.scale_factor, (N - n)), opt)
                 real_s = real_s[:, :, :reals[n].shape[2], :reals[n].shape[3]]
-                real_quant, centers = functions.quant(real_s, opt.device)
+                real_quant, centers = functions.quant(real_s, opt)
                 plt.imsave('%s/real_quant.png' % dir2save, functions.convert_image_np(real_quant), vmin=0, vmax=1)
                 plt.imsave('%s/in_paint.png' % dir2save, functions.convert_image_np(in_s), vmin=0, vmax=1)
-                in_s = functions.quant2centers(ref, centers)
+                in_s = functions.quant2centers(ref, centers, opt)
                 in_s = imresize(in_s, pow(opt.scale_factor, (N - n)), opt)
                 # in_s = in_s[:, :, :reals[n - 1].shape[2], :reals[n - 1].shape[3]]
                 # in_s = imresize(in_s, 1 / opt.scale_factor, opt)

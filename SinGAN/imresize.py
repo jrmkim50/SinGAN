@@ -15,9 +15,9 @@ def norm(x):
     out = (x - 0.5) * 2
     return out.clamp(-1, 1)
 
-def move_to_gpu(t):
+def move_to_gpu(t,opt):
     if (torch.cuda.is_available()):
-        t = t.to(torch.device('cuda'))
+        t = t.to(opt.device)
     return t
 
 def np2torch(x,opt):
@@ -30,7 +30,7 @@ def np2torch(x,opt):
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
     if not (opt.not_cuda):
-        x = move_to_gpu(x)
+        x = move_to_gpu(x,opt)
     x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
     #x = x.type(torch.cuda.FloatTensor)
     x = norm(x)
@@ -43,7 +43,7 @@ def np2torch3D(x,opt):
     x = x.transpose((4, 3, 0, 1, 2))
     x = torch.from_numpy(x)
     if not(opt.not_cuda):
-        x = move_to_gpu(x)
+        x = move_to_gpu(x,opt)
     x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
     #x = x.type(torch.FloatTensor)
     x = norm(x)

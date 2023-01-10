@@ -144,9 +144,9 @@ def reset_grads(model,require_grad):
         p.requires_grad_(require_grad)
     return model
 
-def move_to_gpu(t):
+def move_to_gpu(t, opt):
     if (torch.cuda.is_available()):
-        t = t.to(torch.device('cuda'))
+        t = t.to(opt.device)
     return t
 
 def move_to_cpu(t):
@@ -197,7 +197,7 @@ def np2torch(x,opt):
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
     if not(opt.not_cuda):
-        x = move_to_gpu(x)
+        x = move_to_gpu(x, opt)
     x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
     #x = x.type(torch.FloatTensor)
     x = norm(x)
@@ -210,7 +210,7 @@ def np2torch3D(x,opt):
     x = x.transpose((4, 3, 0, 1, 2))
     x = torch.from_numpy(x)
     if not(opt.not_cuda):
-        x = move_to_gpu(x)
+        x = move_to_gpu(x, opt)
     x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
     #x = x.type(torch.FloatTensor)
     x = norm(x)
@@ -382,27 +382,27 @@ def calc_init_scale(opt):
     in_scale = pow(opt.sr_factor, 1 / iter_num)
     return in_scale,iter_num
 
-def quant(prev,device):
+def quant(prev,opt):
     arr = prev.reshape((-1, 3)).cpu()
     kmeans = KMeans(n_clusters=5, random_state=0).fit(arr)
     labels = kmeans.labels_
     centers = kmeans.cluster_centers_
     x = centers[labels]
     x = torch.from_numpy(x)
-    x = move_to_gpu(x)
+    x = move_to_gpu(x,opt)
     x = x.type(torch.cuda.FloatTensor) if () else x.type(torch.FloatTensor)
     #x = x.type(torch.FloatTensor.to(device))
     x = x.view(prev.shape)
     return x,centers
 
-def quant2centers(paint, centers):
+def quant2centers(paint, centers, opt):
     arr = paint.reshape((-1, 3)).cpu()
     kmeans = KMeans(n_clusters=5, init=centers, n_init=1).fit(arr)
     labels = kmeans.labels_
     #centers = kmeans.cluster_centers_
     x = centers[labels]
     x = torch.from_numpy(x)
-    x = move_to_gpu(x)
+    x = move_to_gpu(x, opt)
     x = x.type(torch.cuda.FloatTensor) if torch.cuda.is_available() else x.type(torch.FloatTensor)
     #x = x.type(torch.cuda.FloatTensor)
     x = x.view(paint.shape)
