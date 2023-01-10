@@ -96,9 +96,9 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
     for epoch in range(opt.niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
             z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
-            z_opt3D = m_noise3D(z_opt3D.expand(1,opt.ncz,opt.nzx,opt.nzy,opt.nzz))
+            z_opt3D = m_noise3D(z_opt3D.expand(1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
             noise_3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
-            noise_3D = m_noise3D(noise_3D.expand(1,opt.ncz,opt.nzx,opt.nzy,opt.nzz))
+            noise_3D = m_noise3D(noise_3D.expand(1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
         else:
             noise_3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
             noise_3D = m_noise3D(noise_3D)
