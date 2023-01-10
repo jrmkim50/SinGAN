@@ -9,7 +9,7 @@ from skimage import io as img
 from skimage import color, morphology, filters
 #from skimage import morphology
 #from skimage import filters
-from SinGAN.imresize import imresize
+from SinGAN.imresize import imresize, imresize3D
 import os
 import random
 import nibabel as nib
@@ -236,7 +236,7 @@ def adjust_scales2image(real_,opt):
     )
     opt.stop_scale = opt.num_scales - scale2stop
     opt.scale1 = min(opt.max_size / max([real_.shape[2], real_.shape[3], real_.shape[4]]),1)  # min(250/max([real_.shape[0],real_.shape[1]]),1)
-    real = imresize(real_, opt.scale1, opt)
+    real = imresize3D(real_, opt.scale1, opt)
     #opt.scale_factor = math.pow(opt.min_size / (real.shape[2]), 1 / (opt.stop_scale))
     opt.scale_factor = math.pow(
         opt.min_size/(min(real.shape[2],real.shape[3],real.shape[4])),
@@ -272,6 +272,14 @@ def creat_reals_pyramid(real,reals,opt):
     for i in range(0,opt.stop_scale+1,1):
         scale = math.pow(opt.scale_factor,opt.stop_scale-i)
         curr_real = imresize(real,scale,opt)
+        reals.append(curr_real)
+    return reals
+
+def creat_reals_pyramid3D(real,reals,opt):
+    real = real[:,:,:,:]
+    for i in range(0,opt.stop_scale+1,1):
+        scale = math.pow(opt.scale_factor,opt.stop_scale-i)
+        curr_real = imresize3D(real,scale,opt)
         reals.append(curr_real)
     return reals
 
