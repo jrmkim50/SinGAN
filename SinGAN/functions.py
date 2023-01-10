@@ -63,7 +63,7 @@ def convert_image_np3D(inp):
     inp = move_to_cpu(inp[-1,:,:,:,:])
     inp = inp.numpy().transpose((1,2,3,0))
     inp = np.clip(inp,0,1)
-    return inp[:,:,inp.shape[2] // 2, 0]
+    return inp[:,inp.shape[1] // 2,:, 0]
 
 def save_image(real_cpu,receptive_feild,ncs,epoch_num,file_name):
     fig,ax = plt.subplots(1)
