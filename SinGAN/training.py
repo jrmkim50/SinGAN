@@ -154,6 +154,7 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
                 noise3D = opt.noise_amp*noise_3D+prev
 
             fake = netG(noise3D.detach(),prev)
+            print(noise3D.size(), prev.size(), fake.size())
             output = netD(fake.detach())
             errD_fake = output.mean()
             errD_fake.backward(retain_graph=True)
