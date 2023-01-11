@@ -10,6 +10,7 @@ from skimage import color, morphology, filters
 #from skimage import morphology
 #from skimage import filters
 from SinGAN.imresize import imresize, imresize3D
+from SinGAN.utils import adjust_dynamic_range
 import os
 import random
 import nibabel as nib
@@ -27,12 +28,10 @@ def read_image3D(opt):
     return np2torch3D(x,opt)
 
 def denorm(x):
-    out = (x + 1) / 2
-    return out.clamp(0, 1)
+    return adjust_dynamic_range(x, [-1,1],[0,1])
 
 def norm(x):
-    out = (x -0.5) *2
-    return out.clamp(-1, 1)
+    return adjust_dynamic_range(x, [0,1], [-1,1])
 
 #def denorm2image(I1,I2):
 #    out = (I1-I1.mean())/(I1.max()-I1.min())

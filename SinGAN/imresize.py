@@ -5,15 +5,14 @@ from scipy.ndimage import filters, measurements, interpolation
 from skimage import color
 from math import pi
 import torch
+from SinGAN.utils import adjust_dynamic_range
 
 
 def denorm(x):
-    out = (x + 1) / 2
-    return out.clamp(0, 1)
+    return adjust_dynamic_range(x, [-1,1],[0,1])
 
 def norm(x):
-    out = (x - 0.5) * 2
-    return out.clamp(-1, 1)
+    return adjust_dynamic_range(x, [0,1], [-1,1])
 
 def move_to_gpu(t,opt):
     if (torch.cuda.is_available()):
