@@ -340,7 +340,7 @@ def generate_in2coarsest(reals,scale_v,scale_h,opt):
 def generate_dir2save(opt):
     dir2save = None
     if (opt.mode == 'train') | (opt.mode == 'SR_train'):
-        dir2save = 'TrainedModels/%s/scale_factor=%f,alpha=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.alpha)
+        dir2save = 'TrainedModels/%s/scale_factor=%f,alpha=%d,min_size=%d,num_layers=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.alpha,opt.min_size,opt.num_layer)
     elif (opt.mode == 'animation_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (opt.input_name[:-4], opt.scale_factor_init)
     elif (opt.mode == 'paint_train') :
