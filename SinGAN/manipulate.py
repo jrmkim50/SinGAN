@@ -19,6 +19,7 @@ import imageio
 import matplotlib.pyplot as plt
 from SinGAN.training import *
 from config import get_arguments
+import nibabel as nib
 
 def generate_gif(Gs,Zs,reals,NoiseAmp,opt,alpha=0.1,beta=0.9,start_scale=2,fps=10):
 
@@ -86,7 +87,7 @@ def generate_gif(Gs,Zs,reals,NoiseAmp,opt,alpha=0.1,beta=0.9,start_scale=2,fps=1
     imageio.mimsave('%s/start_scale=%d/alpha=%f_beta=%f.gif' % (dir2save,start_scale,alpha,beta),images_cur,fps=fps)
     del images_cur
 
-def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale_z=1,n=0,gen_start_scale=0,num_samples=50):
+def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale_z=1,n=0,gen_start_scale=0,num_samples=50,eval=False):
     #if torch.is_tensor(in_s) == False:
     if in_s is None:
         in_s = torch.full(reals[0].shape, 0, device=opt.device)
@@ -142,7 +143,17 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
                 except OSError:
                     pass
                 if (opt.mode != "harmonization") & (opt.mode != "editing") & (opt.mode != "SR") & (opt.mode != "paint2image"):
-                    plt.imsave('%s/%d.png' % (dir2save, i), functions.convert_image_np3D(I_curr.detach()), vmin=0,vmax=1)
+                    if not eval:
+                        plt.imsave('%s/%d.png' % (dir2save, i), functions.convert_image_np3D(I_curr.detach()), vmin=0,vmax=1)
+                    else:
+                        # w,d,h,channel
+                        data = functions.convert_image_np3D(I_curr.detach(), eval=True)
+                        plt.imsave('%s/%d-ct.png' % (dir2save, i), data[:,data.shape[1] // 2,:, 0], vmin=0,vmax=0.2)
+                        plt.imsave('%s/%d-pet.png' % (dir2save, i), data[:,data.shape[1] // 2,:, 1], vmin=0,vmax=1)
+                        ct_img = nib.Nifti1Image(data[:,:,:,0], np.eye(4))
+                        pet_img = nib.Nifti1Image(data[:,:,:,1], np.eye(4))
+                        nib.save(ct_img, os.path.join(dir2save, f"{i}-ct.nii.gz"))
+                        nib.save(pet_img, os.path.join(dir2save, f"{i}-pet.nii.gz"))
                     #plt.imsave('%s/%d_%d.png' % (dir2save,i,n),functions.convert_image_np(I_curr.detach()), vmin=0, vmax=1)
                     #plt.imsave('%s/in_s.png' % (dir2save), functions.convert_image_np(in_s), vmin=0,vmax=1)
             images_cur.append(I_curr)
