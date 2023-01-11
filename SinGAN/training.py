@@ -108,7 +108,7 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
         ###########################
         for j in range(opt.Dsteps):
             # train with real
-            netD.zero_grad()
+            optimizerD.zero_grad()
 
             output = netD(real).to(opt.device)
             #D_real_map = output.detach()
@@ -173,7 +173,7 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
 
         for j in range(opt.Gsteps):
             fake = netG(noise3D.detach(), prev.detach())
-            netG.zero_grad()
+            optimizerG.zero_grad()
             output = netD(fake)
             #D_fake_map = output.detach()
             errG = -output.mean()
