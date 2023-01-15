@@ -172,6 +172,41 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
         ###########################
 
         for j in range(opt.Gsteps):
+            ### START TESTING whether need to update noise each Gstep
+            if (j==0) & (epoch == 0):
+                if (Gs == []) & (opt.mode != 'SR_train'):
+                    prev = torch.full([1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
+                    in_s = prev
+                    prev = m_image3D(prev)
+                    z_prev3D = torch.full([1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
+                    z_prev3D = m_noise3D(z_prev3D)
+                    opt.noise_amp = 1
+                elif opt.mode == 'SR_train':
+                    z_prev3D = in_s
+                    criterion = nn.MSELoss()
+                    RMSE = torch.sqrt(criterion(real, z_prev3D))
+                    opt.noise_amp = opt.noise_amp_init * RMSE
+                    z_prev3D = m_image3D(z_prev3D)
+                    prev = z_prev3D
+                else:
+                    prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
+                    prev = m_image3D(prev)
+                    z_prev3D = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rec',m_noise3D,m_image3D,opt)
+                    criterion = nn.MSELoss()
+                    RMSE = torch.sqrt(criterion(real, z_prev3D))
+                    opt.noise_amp = opt.noise_amp_init*RMSE
+                    z_prev3D = m_image3D(z_prev3D)
+            else:
+                prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
+                prev = m_image3D(prev)
+
+            if (Gs == []) & (opt.mode != 'SR_train'):
+                noise3D = noise_3D
+            else:
+                noise3D = opt.noise_amp*noise_3D+prev
+
+            ### END TESTING whether need to update noise each Gstep
+
             fake = netG(noise3D.detach(), prev.detach())
             optimizerG.zero_grad()
             output = netD(fake)
