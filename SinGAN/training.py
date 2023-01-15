@@ -172,6 +172,9 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
         ###########################
 
         for j in range(opt.Gsteps):
+            
+            optimizerG.zero_grad()
+
             ### START TESTING whether need to update noise each Gstep
             if (j==0) & (epoch == 0):
                 if (Gs == []) & (opt.mode != 'SR_train'):
@@ -208,7 +211,6 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
             ### END TESTING whether need to update noise each Gstep
 
             fake = netG(noise3D.detach(), prev.detach())
-            optimizerG.zero_grad()
             output = netD(fake)
             #D_fake_map = output.detach()
             errG = -output.mean()
