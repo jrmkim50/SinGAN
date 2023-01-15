@@ -25,6 +25,7 @@ def read_image(opt):
 
 def read_image3D(opt):
     x = nib.load('%s%s' % (opt.input_dir,opt.input_name)).get_fdata()
+    x[:,:,:,0] /= 0.172 # place ct in [0 - 1 range]
     return np2torch3D(x,opt)
 
 def denorm(x):
