@@ -6,3 +6,4 @@ TrainedModels/
 *.ipynb
 .ipynb_checkpoints/
 singan_env
+**/*.pyc
