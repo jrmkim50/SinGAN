@@ -3,13 +3,26 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 
+class Snake(nn.Module):
+    def __init__(self, alpha):
+        super().__init__()
+        self.alpha = alpha
+
+    def forward(self, x):
+        return x * (1 / self.alpha) * torch.sin(x)* torch.sin(x)
 
 class ConvBlock(nn.Sequential):
-    def __init__(self, in_channel, out_channel, ker_size, padd, stride):
+    def __init__(self, in_channel, out_channel, ker_size, padd, stride, generator=True):
         super(ConvBlock,self).__init__()
-        self.add_module('conv',nn.Conv2d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd)),
-        self.add_module('norm',nn.BatchNorm2d(out_channel)),
+        self.add_module('conv',nn.Conv2d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
+        self.add_module('norm',nn.BatchNorm2d(out_channel))
         self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
+        # if generator:
+        #     self.add_module('norm',nn.BatchNorm2d(out_channel))
+        #     # self.add_module('Snake', Snake(10))
+        #     self.add_module('LeakyRelu',nn.LeakyReLU(0.05, inplace=True))
+        # else:
+        #     self.add_module('LeakyRelu',nn.LeakyReLU(0.05, inplace=True))
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -24,11 +37,11 @@ class WDiscriminator(nn.Module):
         super(WDiscriminator, self).__init__()
         self.is_cuda = torch.cuda.is_available()
         N = int(opt.nfc)
-        self.head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1)
+        self.head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1,generator=False)
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
-            block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1)
+            block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,generator=False)
             self.body.add_module('block%d'%(i+1),block)
         self.tail = nn.Conv2d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
 
