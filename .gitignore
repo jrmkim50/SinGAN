@@ -2,6 +2,7 @@
 Output/
 TrainedModels/
 __pycache__/
+**/__pycache__/*
 .idea
 singan_env
 *.ipynb
