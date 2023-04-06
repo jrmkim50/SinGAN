@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
-# from . import attention
 
 class Snake(nn.Module):
     def __init__(self, alpha):
@@ -46,10 +45,8 @@ class WDiscriminator(nn.Module):
             block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,generator=False)
             self.body.add_module('block%d'%(i+1),block)
         self.tail = nn.Conv2d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
-#         self.cbam = attention.CBAM(3, 1, no_spatial=True)
 
     def forward(self,x):
-#         x = self.cbam(x)
         x = self.head(x)
         x = self.body(x)
         x = self.tail(x)
@@ -71,7 +68,6 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
             nn.Conv2d(max(N,opt.min_nfc),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
             nn.Tanh()
         )
-#         self.cbam = attention.CBAM(3, 1)
         
     def forward(self,x,y):
         x = self.head(x)
@@ -80,6 +76,5 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         ind = int((y.shape[2]-x.shape[2])/2)
         y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind)]
         summed = x + y
-#         cbam = self.cbam(summed)
         return summed
         
