@@ -175,6 +175,15 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             output = netD(fake)
             #D_fake_map = output.detach()
             errG = -output.mean()
+            # TODO: Trying what happens when we use SSIM loss in all stages.
+            # if len(Gs) < 2:
+                # First 2 stages of pyramid use SSIM in their loss
+            denormed_fake = (fake + 1) / 2
+            denormed_real = (real + 1) / 2
+            ssim_loss = 1 - ssim( denormed_fake, denormed_real, data_range=1, size_average=True)
+            errG += ssim_loss
+
+
             errG.backward(retain_graph=True)
             if alpha!=0:
                 loss = nn.MSELoss()
