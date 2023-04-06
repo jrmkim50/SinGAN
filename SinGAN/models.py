@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+# from . import attention
 
 class Snake(nn.Module):
     def __init__(self, alpha):
@@ -15,14 +16,15 @@ class ConvBlock(nn.Sequential):
     def __init__(self, in_channel, out_channel, ker_size, padd, stride, generator=True):
         super(ConvBlock,self).__init__()
         self.add_module('conv',nn.Conv2d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
-        self.add_module('norm',nn.BatchNorm2d(out_channel))
-        self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
         # if generator:
         #     self.add_module('norm',nn.BatchNorm2d(out_channel))
         #     # self.add_module('Snake', Snake(10))
         #     self.add_module('LeakyRelu',nn.LeakyReLU(0.05, inplace=True))
         # else:
         #     self.add_module('LeakyRelu',nn.LeakyReLU(0.05, inplace=True))
+        # if generator:
+        self.add_module('norm',nn.BatchNorm2d(out_channel))
+        self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -31,7 +33,7 @@ def weights_init(m):
     elif classname.find('Norm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
-   
+        
 class WDiscriminator(nn.Module):
     def __init__(self, opt):
         super(WDiscriminator, self).__init__()
@@ -44,8 +46,10 @@ class WDiscriminator(nn.Module):
             block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,generator=False)
             self.body.add_module('block%d'%(i+1),block)
         self.tail = nn.Conv2d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
+#         self.cbam = attention.CBAM(3, 1, no_spatial=True)
 
     def forward(self,x):
+#         x = self.cbam(x)
         x = self.head(x)
         x = self.body(x)
         x = self.tail(x)
@@ -67,10 +71,15 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
             nn.Conv2d(max(N,opt.min_nfc),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
             nn.Tanh()
         )
+#         self.cbam = attention.CBAM(3, 1)
+        
     def forward(self,x,y):
         x = self.head(x)
         x = self.body(x)
         x = self.tail(x)
         ind = int((y.shape[2]-x.shape[2])/2)
         y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind)]
-        return x+y
+        summed = x + y
+#         cbam = self.cbam(summed)
+        return summed
+        

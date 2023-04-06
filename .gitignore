@@ -6,3 +6,4 @@ __pycache__/
 .idea
 singan_env
 *.ipynb
+Input/Images/*
