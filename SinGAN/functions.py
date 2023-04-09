@@ -234,6 +234,8 @@ def load_trained_pyramid(opt, mode_='train'):
     if (mode == 'animation_train') | (mode == 'SR_train') | (mode == 'paint_train'):
         opt.mode = mode
     dir = generate_dir2save(opt)
+    if opt.train_dir:
+        dir = 'TrainedModels/%s/%s' % (opt.input_name[:-4], opt.train_dir)
     if(os.path.exists(dir)):
         Gs = torch.load('%s/Gs.pth' % dir)
         Zs = torch.load('%s/Zs.pth' % dir)

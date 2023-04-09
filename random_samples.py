@@ -5,6 +5,8 @@ from SinGAN.imresize import imresize
 import SinGAN.functions as functions
 
 
+# python random_samples.py --input_name mouse-original.jpg --mode random_samples --gen_start_scale 1 --config_tag "" --train_dir "scale_factor=0.750000,alpha=10,num_layers=10" --num_layer 10
+
 if __name__ == '__main__':
     parser = get_arguments()
     parser.add_argument('--input_dir', help='input image dir', default='Input/Images')
@@ -15,6 +17,7 @@ if __name__ == '__main__':
     # for random_samples_arbitrary_sizes:
     parser.add_argument('--scale_h', type=float, help='horizontal resize factor for random samples', default=1.5)
     parser.add_argument('--scale_v', type=float, help='vertical resize factor for random samples', default=1)
+    parser.add_argument('--train_dir', type=str, default=None)
     opt = parser.parse_args()
     opt = functions.post_config(opt)
     Gs = []
