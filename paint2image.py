@@ -5,6 +5,8 @@ from SinGAN.imresize import imresize
 from SinGAN.imresize import imresize_to_shape
 import SinGAN.functions as functions
 
+# python paint2image.py --input_name mouse-original.jpg --ref_name mouse-mask.jpg --config_tag "" --train_dir "scale_factor=0.750000,alpha=10,num_layers=10" --num_layer 10 --paint_start_scale 2
+# python paint2image.py --input_name mouse-original.jpg --ref_name mouse-mask.jpg --config_tag "first_one_layers_match_training" --num_layer 10 --paint_start_scale 1
 
 if __name__ == '__main__':
     parser = get_arguments()
@@ -15,6 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('--paint_start_scale', help='paint injection scale', type=int, required=True)
     parser.add_argument('--quantization_flag', help='specify if to perform color quantization training', type=bool, default=False)
     parser.add_argument('--mode', help='task to be done', default='paint2image')
+    parser.add_argument('--train_dir', type=str, default=None)
     opt = parser.parse_args()
     opt = functions.post_config(opt)
     Gs = []
