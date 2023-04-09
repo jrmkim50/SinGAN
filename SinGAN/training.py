@@ -7,7 +7,7 @@ import torch.utils.data
 import math
 import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize
-from pytorch_msssim import ssim
+from torchmetrics.functional import structural_similarity_index_measure as ssim
 
 def train(opt,Gs,Zs,reals,NoiseAmp):
     real_ = functions.read_image(opt)
@@ -176,16 +176,18 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             output = netD(fake)
             #D_fake_map = output.detach()
             errG = -output.mean()
-            # TODO: Trying what happens when we use SSIM loss in all stages.
+            # Disabling constraint that early stages should match real sample.
             # if len(Gs) < 2:
-                # First 2 stages of pyramid use SSIM in their loss
-            denormed_fake = (fake + 1) / 2
-            denormed_real = (real + 1) / 2
-            ssim_loss = 1 - ssim( denormed_fake, denormed_real, data_range=1, size_average=True)
-            errG += ssim_loss
-
-
+            #     loss = nn.MSELoss()
+            #     errG += 10*loss(fake, real)
+            # Disabling SSIM loss
+            # if len(Gs) < 2:
+            #     denormed_fake = (fake + 1) / 2
+            #     denormed_real = (real + 1) / 2
+            #     ssim_loss = opt.ssim_alpha * (1 - ssim( denormed_fake, denormed_real))
+            #     errG += ssim_loss
             errG.backward(retain_graph=True)
+
             if alpha!=0:
                 loss = nn.MSELoss()
                 if opt.mode == 'paint_train':
