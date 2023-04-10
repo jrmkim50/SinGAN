@@ -41,12 +41,14 @@ class VGGLoss(nn.Module):
         self.model.requires_grad_(False)
 
     def get_features(self, input):
-        return self.model(self.normalize(input))
+        return self.model(input)
 
     def train(self, mode=True):
         self.training = mode
 
     def forward(self, input, target, target_is_features=False):
+        input = self.normalize(input[0])[None]
+        target = self.normalize(target[0])[None]
         if target_is_features:
             input_feats = self.get_features(input)
             target_feats = target

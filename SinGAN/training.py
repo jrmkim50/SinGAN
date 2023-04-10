@@ -1,6 +1,7 @@
 import SinGAN.functions as functions
 import SinGAN.models as models
 import os
+import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
@@ -8,6 +9,7 @@ import math
 import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize
 from torchmetrics.functional import structural_similarity_index_measure as ssim
+from SinGAN.perceptual import VGGLoss
 
 def train(opt,Gs,Zs,reals,NoiseAmp):
     real_ = functions.read_image(opt)
@@ -93,6 +95,8 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
     D_fake2plot = []
     z_opt2plot = []
 
+    vgg_loss = VGGLoss().cuda()
+
     for epoch in range(opt.niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
             z_opt = functions.generate_noise([1,opt.nzx,opt.nzy], device=opt.device)
@@ -176,6 +180,10 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             output = netD(fake)
             #D_fake_map = output.detach()
             errG = -output.mean()
+            # VGG loss
+            fake_adjusted = (fake + 1) / 2
+            real_adjusted = (real + 1) / 2
+            errG += opt.vgg_alpha * vgg_loss(fake_adjusted, real_adjusted)
             errG.backward(retain_graph=True)
 
             if alpha!=0:

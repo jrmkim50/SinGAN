@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+import SinGAN.attention as attention
 
 class Snake(nn.Module):
     def __init__(self, alpha):
@@ -12,7 +13,7 @@ class Snake(nn.Module):
         return x * (1 / self.alpha) * torch.sin(x)* torch.sin(x)
 
 class ConvBlock(nn.Sequential):
-    def __init__(self, in_channel, out_channel, ker_size, padd, stride, generator=True):
+    def __init__(self, in_channel, out_channel, ker_size, padd, stride, generator=True, use_attn=False):
         super(ConvBlock,self).__init__()
         self.add_module('conv',nn.Conv2d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
         # if generator:
@@ -24,6 +25,8 @@ class ConvBlock(nn.Sequential):
         # if generator:
         self.add_module('norm',nn.BatchNorm2d(out_channel))
         self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
+        if use_attn:
+            self.add_module('CBAM', attention.CBAM(out_channel))
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -42,7 +45,10 @@ class WDiscriminator(nn.Module):
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
-            block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,generator=False)
+            if i == (opt.num_layer - 2) // 2:
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,generator=False,use_attn=True)
+            else:
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,generator=False)
             self.body.add_module('block%d'%(i+1),block)
         self.tail = nn.Conv2d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
 
@@ -62,7 +68,10 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
-            block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1)
+            if i == (opt.num_layer - 2) // 2:
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,use_attn=True)
+            else:
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1)
             self.body.add_module('block%d'%(i+1),block)
         self.tail = nn.Sequential(
             nn.Conv2d(max(N,opt.min_nfc),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
