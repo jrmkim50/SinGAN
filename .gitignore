@@ -7,3 +7,4 @@ __pycache__/
 singan_env
 *.ipynb
 Input/Images/*
+test.py
