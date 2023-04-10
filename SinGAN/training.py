@@ -176,16 +176,6 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             output = netD(fake)
             #D_fake_map = output.detach()
             errG = -output.mean()
-            # Disabling constraint that early stages should match real sample.
-            # if len(Gs) < 2:
-            #     loss = nn.MSELoss()
-            #     errG += 10*loss(fake, real)
-            # Disabling SSIM loss
-            # if len(Gs) < 2:
-            #     denormed_fake = (fake + 1) / 2
-            #     denormed_real = (real + 1) / 2
-            #     ssim_loss = opt.ssim_alpha * (1 - ssim( denormed_fake, denormed_real))
-            #     errG += ssim_loss
             errG.backward(retain_graph=True)
 
             if alpha!=0:
