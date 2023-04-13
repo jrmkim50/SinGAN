@@ -258,13 +258,13 @@ def generate_in2coarsest(reals,scale_v,scale_h,opt):
 def generate_dir2save(opt):
     dir2save = None
     if (opt.mode == 'train') | (opt.mode == 'SR_train'):
-        dir2save = 'TrainedModels/%s/scale_factor=%f,alpha=%d,num_layers=%d,%s' % (opt.input_name[:-4], opt.scale_factor_init,opt.alpha,opt.num_layer,opt.config_tag)
+        dir2save = 'TrainedModels/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end)
     elif (opt.mode == 'animation_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (opt.input_name[:-4], opt.scale_factor_init)
     elif (opt.mode == 'paint_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_paint/start_scale=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.paint_start_scale)
     elif opt.mode == 'random_samples':
-        dir2save = '%s/RandomSamples/%s-%s/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.config_tag, opt.gen_start_scale)
+        dir2save = '%s/RandomSamples/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end, opt.gen_start_scale)
     elif opt.mode == 'random_samples_arbitrary_sizes':
         dir2save = '%s/RandomSamples_ArbitrerySizes/%s/scale_v=%f_scale_h=%f' % (opt.out,opt.input_name[:-4], opt.scale_v, opt.scale_h)
     elif opt.mode == 'animation':
@@ -283,7 +283,9 @@ def generate_dir2save(opt):
 
 def post_config(opt):
     # init fixed parameters
-    opt.device = torch.device("cpu" if opt.not_cuda else "cuda:0")
+    opt.device = torch.device("cpu" if opt.not_cuda else f"cuda:{opt.device}")
+    if not opt.not_cuda:
+        torch.cuda.set_device(opt.device)
     opt.niter_init = opt.niter
     opt.noise_amp_init = opt.noise_amp
     opt.nfc_init = opt.nfc
