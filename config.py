@@ -6,6 +6,7 @@ def get_arguments():
     #parser.add_argument('--mode', help='task to be done', default='train')
     #workspace:
     parser.add_argument('--not_cuda', action='store_true', help='disables cuda', default=0)
+    parser.add_argument('--device', type=int, help='which cuda device?', default=0)
     
     #load, input, save configurations:
     parser.add_argument('--netG', default='', help="path to netG (to continue training)")
@@ -14,7 +15,7 @@ def get_arguments():
     parser.add_argument('--nc_z',type=int,help='noise # channels',default=3)
     parser.add_argument('--nc_im',type=int,help='image # channels',default=3)
     parser.add_argument('--out',help='output folder',default='Output')
-    parser.add_argument('--config_tag',type=str,required=True)
+    # parser.add_argument('--config_tag',type=str,required=True)
         
     #networks hyper parameters:
     parser.add_argument('--nfc', type=int, default=32)
@@ -40,7 +41,12 @@ def get_arguments():
     parser.add_argument('--Dsteps',type=int, help='Discriminator inner steps',default=3)
     parser.add_argument('--lambda_grad',type=float, help='gradient penelty weight',default=0.1)
     parser.add_argument('--alpha',type=float, help='reconstruction loss weight',default=10)
-    parser.add_argument('--vgg_alpha',type=float, help='vgg loss weight',default=10)
+    parser.add_argument('--sim_alpha',type=float, help='simularity loss weight',default=10)
+    parser.add_argument('--sim_boundary',type=int, help='Apply sim loss from pyramid layers [sim_boundary, num_stages) or [0,sim_boundary]',default=3)
+    parser.add_argument('--sim_boundary_type',type=str, help='Is the boundary a start or an end?',default='start')
+    parser.add_argument('--sim_type',type=str, help='What type of sim loss?',default='vgg')
+    parser.add_argument('--use_attention',type=bool, help='Use attention?',default=True)
+    parser.add_argument('--use_attention_end',type=bool, help='Use attention?',default=True)
 
     
     return parser
