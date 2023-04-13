@@ -95,7 +95,14 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
     D_fake2plot = []
     z_opt2plot = []
 
-    vgg_loss = VGGLoss().cuda()
+
+    sim_loss = None
+    assert opt.sim_type in ["vgg", "ssim"]
+    assert opt.sim_boundary_type in ["start", "end"]
+    if opt.sim_type == "ssim":
+        sim_loss = ssim
+    else:
+        sim_loss = VGGLoss().cuda()
 
     for epoch in range(opt.niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
@@ -180,10 +187,17 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             output = netD(fake)
             #D_fake_map = output.detach()
             errG = -output.mean()
-            # VGG loss
-            fake_adjusted = (fake + 1) / 2
-            real_adjusted = (real + 1) / 2
-            errG += opt.vgg_alpha * vgg_loss(fake_adjusted, real_adjusted)
+            # Similarity loss
+            if opt.sim_boundary_type == "start":
+                if len(Gs) >= opt.sim_boundary:
+                    fake_adjusted = (fake + 1) / 2
+                    real_adjusted = (real + 1) / 2
+                    errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
+            else:
+                if len(Gs) <= opt.sim_boundary:
+                    fake_adjusted = (fake + 1) / 2
+                    real_adjusted = (real + 1) / 2
+                    errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
             errG.backward(retain_graph=True)
 
             if alpha!=0:
