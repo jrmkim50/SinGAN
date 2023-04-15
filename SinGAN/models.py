@@ -46,7 +46,9 @@ class WDiscriminator(nn.Module):
         for i in range(opt.num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
             if i == (opt.num_layer - 2) // 2:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,generator=False,use_attn=True)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,generator=False,use_attn=opt.use_attention)
+            elif i == (opt.num_layer - 2 - 1):
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,generator=False,use_attn=opt.use_attention_end)
             else:
                 block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,generator=False)
             self.body.add_module('block%d'%(i+1),block)
@@ -69,7 +71,9 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         for i in range(opt.num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
             if i == (opt.num_layer - 2) // 2:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,use_attn=True)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,use_attn=opt.use_attention)
+            elif i == (opt.num_layer - 2 - 1):
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,use_attn=opt.use_attention_end)
             else:
                 block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1)
             self.body.add_module('block%d'%(i+1),block)
