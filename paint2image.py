@@ -5,7 +5,7 @@ from SinGAN.imresize import imresize
 from SinGAN.imresize import imresize_to_shape
 import SinGAN.functions as functions
 
-# python paint2image.py --input_name mouse-original.jpg --ref_name mouse-mask.jpg --config_tag "" --train_dir "scale_factor=0.750000,alpha=10,num_layers=10" --num_layer 10 --paint_start_scale 2
+# python paint2image.py --input_name mouse-original.jpg --ref_name mouse-mask.jpg --train_dir "scale_factor=0.800,num_layers=7,sim_alpha=0.100,sim_boundary=4,sim_boundary_type=start,sim_type=vgg,alpha=10.000,use_attn=1,use_attn_end=1" --num_layer 7 --scale_factor 0.8 --device 6 --paint_start_scale 1
 # python paint2image.py --input_name mouse-original.jpg --ref_name mouse-mask.jpg --config_tag "first_one_layers_match_training" --num_layer 10 --paint_start_scale 1
 
 if __name__ == '__main__':

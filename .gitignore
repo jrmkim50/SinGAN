@@ -8,3 +8,4 @@ singan_env
 *.ipynb
 Input/Images/*
 test.py
+*.sh
