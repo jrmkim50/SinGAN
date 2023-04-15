@@ -192,12 +192,14 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
                 if len(Gs) >= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (real + 1) / 2
-                    errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
+                    errG += opt.sim_alpha * sim_loss(fake_adjusted[:,:3], real_adjusted[:,:3])
+                    errG += opt.sim_alpha * sim_loss(fake_adjusted[:,3:], real_adjusted[:,3:])
             else:
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (real + 1) / 2
-                    errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
+                    errG += opt.sim_alpha * sim_loss(fake_adjusted[:,:3], real_adjusted[:,:3])
+                    errG += opt.sim_alpha * sim_loss(fake_adjusted[:,3:], real_adjusted[:,3:])
             errG.backward(retain_graph=True)
 
             if alpha!=0:
