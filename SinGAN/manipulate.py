@@ -133,7 +133,10 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,n=0,g
 
             if n == len(reals)-1:
                 if opt.mode == 'train':
-                    dir2save = '%s/RandomSamples/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end, gen_start_scale)
+                    if opt.split_images:
+                        dir2save = '%s/RandomSamples/%s_split/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end, gen_start_scale)
+                    else:
+                        dir2save = '%s/RandomSamples/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end, gen_start_scale)
                 else:
                     dir2save = functions.generate_dir2save(opt)
                 try:

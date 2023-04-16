@@ -187,19 +187,21 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             output = netD(fake)
             #D_fake_map = output.detach()
             errG = -output.mean()
-            # Similarity loss
-            if opt.sim_boundary_type == "start":
+            # Similarity loss (only apply for sim alpha != 0)
+            if opt.sim_alpha != 0 and opt.sim_boundary_type == "start":
                 if len(Gs) >= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (real + 1) / 2
                     errG += opt.sim_alpha * sim_loss(fake_adjusted[:,:3], real_adjusted[:,:3])
                     errG += opt.sim_alpha * sim_loss(fake_adjusted[:,3:], real_adjusted[:,3:])
-            else:
+            elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (real + 1) / 2
                     errG += opt.sim_alpha * sim_loss(fake_adjusted[:,:3], real_adjusted[:,:3])
                     errG += opt.sim_alpha * sim_loss(fake_adjusted[:,3:], real_adjusted[:,3:])
+            elif opt.sim_alpha != 0:
+                assert False, "Incorrect use of sim alpha."
             errG.backward(retain_graph=True)
 
             if alpha!=0:
