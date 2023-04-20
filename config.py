@@ -48,6 +48,7 @@ def get_arguments():
     parser.add_argument('--use_attention',type=int, help='Use attention?',default=1)
     parser.add_argument('--use_attention_end',type=int, help='Use attention?',default=1)
     parser.add_argument('--split_images',type=int, help='Split images?',default=0)
+    parser.add_argument('--penalize_mask',type=int, help='Penalize mask?',default=0)
 
     
     return parser

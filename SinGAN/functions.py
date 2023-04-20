@@ -278,18 +278,18 @@ def generate_dir2save(opt):
     dir2save = None
     if (opt.mode == 'train') | (opt.mode == 'SR_train'):
         if opt.split_images:
-            dir2save = 'TrainedModels/%s_split/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init)
+            dir2save = 'TrainedModels/%s_split/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d,penalize_mask=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init,opt.penalize_mask)
         else:
-            dir2save = 'TrainedModels/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init)
+            dir2save = 'TrainedModels/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d,penalize_mask=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init,opt.penalize_mask)
     elif (opt.mode == 'animation_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (opt.input_name[:-4], opt.scale_factor_init)
     elif (opt.mode == 'paint_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_paint/start_scale=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.paint_start_scale)
     elif opt.mode == 'random_samples':
         if opt.split_images:
-            dir2save = '%s/RandomSamples/%s_split/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init, opt.gen_start_scale)
+            dir2save = '%s/RandomSamples/%s_split/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d,penalize_mask=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init,opt.penalize_mask, opt.gen_start_scale)
         else:
-            dir2save = '%s/RandomSamples/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init, opt.gen_start_scale)
+            dir2save = '%s/RandomSamples/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d,penalize_mask=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init,opt.penalize_mask, opt.gen_start_scale)
     elif opt.mode == 'random_samples_arbitrary_sizes':
         dir2save = '%s/RandomSamples_ArbitrerySizes/%s/scale_v=%f_scale_h=%f' % (opt.out,opt.input_name[:-4], opt.scale_v, opt.scale_h)
     elif opt.mode == 'animation':
