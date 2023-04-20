@@ -203,13 +203,15 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (real + 1) / 2
                     errG += opt.sim_alpha * sim_loss(fake_adjusted[:,:3], real_adjusted[:,:3])
-                    errG += opt.sim_alpha * sim_loss(fake_adjusted[:,3:], real_adjusted[:,3:])
+                    if opt.split_images:
+                        errG += opt.sim_alpha * sim_loss(fake_adjusted[:,3:], real_adjusted[:,3:])
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (real + 1) / 2
                     errG += opt.sim_alpha * sim_loss(fake_adjusted[:,:3], real_adjusted[:,:3])
-                    errG += opt.sim_alpha * sim_loss(fake_adjusted[:,3:], real_adjusted[:,3:])
+                    if opt.split_images:
+                        errG += opt.sim_alpha * sim_loss(fake_adjusted[:,3:], real_adjusted[:,3:])
             elif opt.sim_alpha != 0:
                 assert False, "Incorrect use of sim alpha."
             errG.backward(retain_graph=True)
