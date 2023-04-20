@@ -18,6 +18,7 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
     real = imresize(real_,opt.scale1,opt)
     reals = functions.creat_reals_pyramid(real,reals,opt)
     nfc_prev = 0
+    print("Num layers:", opt.stop_scale)
 
     while scale_num<opt.stop_scale+1:
         opt.nfc = min(opt.nfc_init * pow(2, math.floor(scale_num / 4)), 128)
@@ -60,7 +61,14 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
         del D_curr,G_curr
     return
 
+class TargetSimLoss(nn.Module):
+    def __init__(self, target, ssim):
+        super(TargetSimLoss, self).__init__()
+        self.target = target
+        self.ssim = ssim
 
+    def forward(self, fake, real):
+        return torch.abs(self.ssim(fake, real) - self.target)
 
 def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
 
@@ -97,12 +105,14 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
 
 
     sim_loss = None
-    assert opt.sim_type in ["vgg", "ssim"]
+    assert opt.sim_type in ["vgg", "ssim", "ssim_target"]
     assert opt.sim_boundary_type in ["start", "end"]
     if opt.sim_type == "ssim":
         sim_loss = ssim
-    else:
+    elif opt.sim_type == "vgg":
         sim_loss = VGGLoss().cuda()
+    elif opt.sim_type == "ssim_target":
+        sim_loss = TargetSimLoss(0.8, ssim).cuda()
 
     for epoch in range(opt.niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
