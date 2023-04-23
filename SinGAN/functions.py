@@ -18,18 +18,10 @@ from sklearn.cluster import KMeans
 # custom weights initialization called on netG and netD
 
 def read_image(opt):
-    if opt.split_images:
-        # TODO: I will be splitting the image. I am hardcoding the split.
-        x = img.imread('%s/%s' % (opt.input_dir,opt.input_name))
-        x = np.dstack((x[:,:240], x[:,240:]))
-        opt.nc_z = x.shape[-1]
-        opt.nc_im = x.shape[-1]
-        return np2torch(x, opt)
-    else:
-        x = img.imread('%s/%s' % (opt.input_dir,opt.input_name))
-        x = np2torch(x,opt)
-        x = x[:,0:3,:,:]
-        return x
+    x = img.imread('%s/%s' % (opt.input_dir,opt.input_name))
+    x = np2torch(x,opt)
+    x = x[:,0:3,:,:]
+    return x
 
 def denorm(x):
     out = (x + 1) / 2
@@ -163,18 +155,10 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
     return gradient_penalty
 
 def read_image_dir(dir,opt):
-    if opt.split_images:
-        # TODO: I will be splitting the image. I am hardcoding the split.
-        x = img.imread('%s' % dir)
-        x = np.dstack((x[:,:240], x[:,240:]))
-        opt.nc_z = x.shape[-1]
-        opt.nc_im = x.shape[-1]
-        return np2torch(x, opt)
-    else:
-        x = img.imread('%s' % dir)
-        x = np2torch(x,opt)
-        x = x[:,0:3,:,:]
-        return x
+    x = img.imread('%s' % dir)
+    x = np2torch(x,opt)
+    x = x[:,0:3,:,:]
+    return x
 
 def np2torch(x,opt):
     if opt.nc_im >= 3:
@@ -237,8 +221,7 @@ def adjust_scales2image_SR(real_,opt):
     return real
 
 def creat_reals_pyramid(real,reals,opt):
-    if not opt.split_images:
-        real = real[:,0:3,:,:]
+    real = real[:,0:3,:,:]
     for i in range(0,opt.stop_scale+1,1):
         scale = math.pow(opt.scale_factor,opt.stop_scale-i)
         curr_real = imresize(real,scale,opt)
@@ -277,19 +260,13 @@ def generate_in2coarsest(reals,scale_v,scale_h,opt):
 def generate_dir2save(opt):
     dir2save = None
     if (opt.mode == 'train') | (opt.mode == 'SR_train'):
-        if opt.split_images:
-            dir2save = 'TrainedModels/%s_split/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d,min_size=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init,opt.min_size)
-        else:
-            dir2save = 'TrainedModels/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d,min_size=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init,opt.min_size)
+        dir2save = 'TrainedModels/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d,min_size=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init,opt.min_size)
     elif (opt.mode == 'animation_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (opt.input_name[:-4], opt.scale_factor_init)
     elif (opt.mode == 'paint_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_paint/start_scale=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.paint_start_scale)
     elif opt.mode == 'random_samples':
-        if opt.split_images:
-            dir2save = '%s/RandomSamples/%s_split/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d,min_size=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init,opt.min_size, opt.gen_start_scale)
-        else:
-            dir2save = '%s/RandomSamples/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d,min_size=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init,opt.min_size, opt.gen_start_scale)
+        dir2save = '%s/RandomSamples/%s/scale_factor=%.3f,num_layers=%d,sim_alpha=%.3f,sim_boundary=%d,sim_boundary_type=%s,sim_type=%s,alpha=%.3f,use_attn=%d,use_attn_end=%d,nfc=%d,min_size=%d/gen_start_scale=%d' % (opt.out,opt.input_name[:-4], opt.scale_factor_init,opt.num_layer,opt.sim_alpha,opt.sim_boundary,opt.sim_boundary_type,opt.sim_type,opt.alpha,opt.use_attention,opt.use_attention_end,opt.nfc_init,opt.min_size, opt.gen_start_scale)
     elif opt.mode == 'random_samples_arbitrary_sizes':
         dir2save = '%s/RandomSamples_ArbitrerySizes/%s/scale_v=%f_scale_h=%f' % (opt.out,opt.input_name[:-4], opt.scale_v, opt.scale_h)
     elif opt.mode == 'animation':
