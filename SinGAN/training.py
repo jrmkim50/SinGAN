@@ -117,22 +117,14 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
         sim_loss = ssim_target
 
     for epoch in range(opt.niter):
-        # extra_noises = None
         if (Gs == []) & (opt.mode != 'SR_train'):
             z_opt = functions.generate_noise([1,opt.nzx,opt.nzy], device=opt.device)
             z_opt = m_noise(z_opt.expand(1,opt.nc_z,opt.nzx,opt.nzy))
             noise_ = functions.generate_noise([1,opt.nzx,opt.nzy], device=opt.device)
             noise_ = m_noise(noise_.expand(1,opt.nc_z,opt.nzx,opt.nzy))
-            # Generate noise for diversity purposes
-            # if opt.penalize_diversity:
-            #     extra_noises = functions.generate_noise([1,opt.nzx,opt.nzy], num_samp=5, device=opt.device)
-            #     extra_noises = m_noise(extra_noises.expand(-1,opt.nc_z,opt.nzx,opt.nzy))
         else:
             noise_ = functions.generate_noise([opt.nc_z,opt.nzx,opt.nzy], device=opt.device)
             noise_ = m_noise(noise_)
-            # if opt.penalize_diversity:
-            #     extra_noises = functions.generate_noise([opt.nc_z,opt.nzx,opt.nzy], num_samp=5, device=opt.device)
-            #     extra_noises = m_noise(extra_noises)
 
         ############################
         # (1) Update D network: maximize D(x) + D(G(z))
@@ -183,8 +175,6 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
                 noise = noise_
             else:
                 noise = opt.noise_amp*noise_+prev
-                # if opt.penalize_diversity:
-                #     extra_noises = opt.noise_amp*extra_noises+prev
 
             fake = netG(noise.detach(),prev)
             output = netD(fake.detach())
@@ -237,11 +227,6 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
                 real_mask[real_adjusted[:,1][:,None].expand(real_adjusted.shape) > 0.1] = 1
                 assert not opt.split_images, "Split images has not been implemented for penalizing the mask"
                 errG += ssim_target(fake_mask, real_mask)
-            # Penalize diversity loss
-            # if opt.penalize_diversity:
-            #     expanded_prev = prev.expand(extra_noises.shape)
-            #     more_fakes = netG(extra_noises.detach(),expanded_prev)
-            #     errG -= torch.std(more_fakes)
             errG.backward(retain_graph=True)
 
             if alpha!=0:
