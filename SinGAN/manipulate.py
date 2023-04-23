@@ -4,7 +4,7 @@ import SinGAN.models
 import argparse
 import os
 import random
-from SinGAN.imresize import imresize
+from SinGAN.imresize import imresize, imresize3D
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
@@ -19,6 +19,7 @@ import imageio
 import matplotlib.pyplot as plt
 from SinGAN.training import *
 from config import get_arguments
+import nibabel as nib
 
 def generate_gif(Gs,Zs,reals,NoiseAmp,opt,alpha=0.1,beta=0.9,start_scale=2,fps=10):
 
@@ -86,27 +87,28 @@ def generate_gif(Gs,Zs,reals,NoiseAmp,opt,alpha=0.1,beta=0.9,start_scale=2,fps=1
     imageio.mimsave('%s/start_scale=%d/alpha=%f_beta=%f.gif' % (dir2save,start_scale,alpha,beta),images_cur,fps=fps)
     del images_cur
 
-def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,n=0,gen_start_scale=0,num_samples=50):
+def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale_z=1,n=0,gen_start_scale=0,num_samples=50,eval=False):
     #if torch.is_tensor(in_s) == False:
     if in_s is None:
         in_s = torch.full(reals[0].shape, 0, device=opt.device)
     images_cur = []
     for G,Z_opt,noise_amp in zip(Gs,Zs,NoiseAmp):
-        pad1 = ((opt.ker_size-1)*opt.num_layer)/2
-        m = nn.ZeroPad2d(int(pad1))
+        pad1 = int((opt.ker_size-1)*opt.num_layer)/2
+        m = nn.ConstantPad3d(int(pad1), 0)
         nzx = (Z_opt.shape[2]-pad1*2)*scale_v
         nzy = (Z_opt.shape[3]-pad1*2)*scale_h
+        nzz = (Z_opt.shape[4]-pad1*2)*scale_z
 
         images_prev = images_cur
         images_cur = []
 
         for i in range(0,num_samples,1):
             if n == 0:
-                z_curr = functions.generate_noise([1,nzx,nzy], device=opt.device)
-                z_curr = z_curr.expand(1,opt.nc_z,z_curr.shape[2],z_curr.shape[3])
+                z_curr = functions.generate_noise3D([1,nzx,nzy,nzz], device=opt.device)
+                z_curr = z_curr.expand(1,opt.nc_z,z_curr.shape[2],z_curr.shape[3],z_curr.shape[4])
                 z_curr = m(z_curr)
             else:
-                z_curr = functions.generate_noise([opt.nc_z,nzx,nzy], device=opt.device)
+                z_curr = functions.generate_noise3D([opt.nc_z,nzx,nzy,nzz], device=opt.device)
                 z_curr = m(z_curr)
 
             if images_prev == []:
@@ -116,12 +118,12 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,n=0,g
                 #I_prev = functions.upsampling(I_prev,z_curr.shape[2],z_curr.shape[3])
             else:
                 I_prev = images_prev[i]
-                I_prev = imresize(I_prev,1/opt.scale_factor, opt)
+                I_prev = imresize3D(I_prev,1/opt.scale_factor, opt)
                 if opt.mode != "SR":
-                    I_prev = I_prev[:, :, 0:round(scale_v * reals[n].shape[2]), 0:round(scale_h * reals[n].shape[3])]
+                    I_prev = I_prev[:, :, 0:round(scale_v * reals[n].shape[2]), 0:round(scale_h * reals[n].shape[3]), 0:round(scale_z * reals[n].shape[4])]
                     I_prev = m(I_prev)
-                    I_prev = I_prev[:,:,0:z_curr.shape[2],0:z_curr.shape[3]]
-                    I_prev = functions.upsampling(I_prev,z_curr.shape[2],z_curr.shape[3])
+                    I_prev = I_prev[:,:,0:z_curr.shape[2],0:z_curr.shape[3],0:z_curr.shape[4]]
+                    I_prev = functions.upsampling3D(I_prev,z_curr.shape[2],z_curr.shape[3],z_curr.shape[4])
                 else:
                     I_prev = m(I_prev)
 
@@ -141,7 +143,14 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,n=0,g
                 except OSError:
                     pass
                 if (opt.mode != "harmonization") & (opt.mode != "editing") & (opt.mode != "SR") & (opt.mode != "paint2image"):
-                    plt.imsave('%s/%d.png' % (dir2save, i), functions.convert_image_np(I_curr.detach()), vmin=0,vmax=1)
+                    if not eval:
+                        plt.imsave('%s/%d.png' % (dir2save, i), functions.convert_image_np3D(I_curr.detach()), vmin=0,vmax=1)
+                    else:
+                        # w,d,h,channel
+                        data = functions.convert_image_np3D(I_curr.detach(), eval=True)
+                        plt.imsave('%s/%d-pet.png' % (dir2save, i), data[:,data.shape[1] // 2,:, 0], vmin=0,vmax=1)
+                        pet_img = nib.Nifti1Image(data[:,:,:,0], np.eye(4))
+                        nib.save(pet_img, os.path.join(dir2save, f"{i}-pet.nii.gz"))
                     #plt.imsave('%s/%d_%d.png' % (dir2save,i,n),functions.convert_image_np(I_curr.detach()), vmin=0, vmax=1)
                     #plt.imsave('%s/in_s.png' % (dir2save), functions.convert_image_np(in_s), vmin=0,vmax=1)
             images_cur.append(I_curr)

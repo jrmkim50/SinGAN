@@ -9,26 +9,36 @@ from skimage import io as img
 from skimage import color, morphology, filters
 #from skimage import morphology
 #from skimage import filters
-from SinGAN.imresize import imresize
+from SinGAN.imresize import imresize, imresize3D
 import os
 import random
+import nibabel as nib
 from sklearn.cluster import KMeans
 
 
 # custom weights initialization called on netG and netD
 
 def read_image(opt):
+    assert False, "should not be called in 3d mode"
     x = img.imread('%s/%s' % (opt.input_dir,opt.input_name))
     x = np2torch(x,opt)
     x = x[:,0:3,:,:]
     return x
+
+def read_image3D(opt):
+    x = nib.load('%s/%s' % (opt.input_dir,opt.input_name)).get_fdata()
+    if len(x.shape) == 3:
+        x = x[:,:,:,None]
+    opt.nc_im = x.shape[-1]
+    opt.nc_z = x.shape[-1]
+    return np2torch3D(x,opt)
 
 def denorm(x):
     out = (x + 1) / 2
     return out.clamp(0, 1)
 
 def norm(x):
-    out = (x -0.5) *2
+    out = (x - 0.5) * 2
     return out.clamp(-1, 1)
 
 #def denorm2image(I1,I2):
@@ -41,16 +51,11 @@ def norm(x):
 #    return out#.clamp(I2.min(), I2.max())
 
 def convert_image_np(inp):
+    assert False, "should not be called in 3d mode"
     if inp.shape[1]==3:
         inp = denorm(inp)
         inp = move_to_cpu(inp[-1,:,:,:])
         inp = inp.numpy().transpose((1,2,0))
-    elif inp.shape[1]>3:
-        inp = denorm(inp)
-        inp = move_to_cpu(inp[-1,:,:,:])
-        inp = inp.numpy().transpose((1,2,0))
-        # readjust input to be on 3 channels: just stack the two halves of the image.
-        inp = np.hstack([inp[:,:,:3], inp[:,:,3:]])
     else:
         inp = denorm(inp)
         inp = move_to_cpu(inp[-1,-1,:,:])
@@ -60,6 +65,15 @@ def convert_image_np(inp):
 
     inp = np.clip(inp,0,1)
     return inp
+
+def convert_image_np3D(inp,eval=False):
+    inp = denorm(inp)
+    inp = move_to_cpu(inp[-1,:,:,:,:])
+    inp = inp.numpy().transpose((1,2,3,0))
+    inp = np.clip(inp,0,1)
+    if eval:
+        return inp
+    return inp[:,inp.shape[1] // 2,:, 0]
 
 def save_image(real_cpu,receptive_feild,ncs,epoch_num,file_name):
     fig,ax = plt.subplots(1)
@@ -83,6 +97,7 @@ def convert_image_np_2d(inp):
     return inp
 
 def generate_noise(size,num_samp=1,device='cuda',type='gaussian', scale=1):
+    assert False, "should not be called in 3d mode"
     if type == 'gaussian':
         noise = torch.randn(num_samp, size[0], round(size[1]/scale), round(size[2]/scale), device=device)
         noise = upsampling(noise,size[1], size[2])
@@ -93,6 +108,19 @@ def generate_noise(size,num_samp=1,device='cuda',type='gaussian', scale=1):
     if type == 'uniform':
         noise = torch.randn(num_samp, size[0], size[1], size[2], device=device)
     return noise
+
+def generate_noise3D(size,num_samp=1,device='cuda',type='gaussian', scale=1):
+    if type == 'gaussian':
+        noise = torch.randn(num_samp, size[0], round(size[1]/scale), round(size[2]/scale), round(size[3]/scale), device=device)
+        noise = upsampling3D(noise,size[1], size[2],size[3])
+    if type =='gaussian_mixture':
+        noise1 = torch.randn(num_samp, size[0], size[1], size[2], size[3], device=device)+5
+        noise2 = torch.randn(num_samp, size[0], size[1], size[2], size[3], device=device)
+        noise = noise1+noise2
+    if type == 'uniform':
+        noise = torch.randn(num_samp, size[0], size[1], size[2], size[3], device=device)
+    return noise
+
 
 def plot_learning_curves(G_loss,D_loss,epochs,label1,label2,name):
     fig,ax = plt.subplots(1)
@@ -116,6 +144,10 @@ def plot_learning_curve(loss,epochs,name):
 
 def upsampling(im,sx,sy):
     m = nn.Upsample(size=[round(sx),round(sy)],mode='bilinear',align_corners=True)
+    return m(im)
+
+def upsampling3D(im,sx,sy,sz):
+    m = nn.Upsample(size=[round(sx),round(sy),round(sz)],mode='trilinear',align_corners=True)
     return m(im)
 
 def reset_grads(model,require_grad):
@@ -161,6 +193,7 @@ def read_image_dir(dir,opt):
     return x
 
 def np2torch(x,opt):
+    assert False, "do not call in 3d mode"
     if opt.nc_im >= 3:
         x = x[:,:,:,None]
         x = x.transpose((3, 2, 0, 1))/255
@@ -168,6 +201,19 @@ def np2torch(x,opt):
         x = color.rgb2gray(x)
         x = x[:,:,None,None]
         x = x.transpose(3, 2, 0, 1)
+    x = torch.from_numpy(x)
+    if not(opt.not_cuda):
+        x = move_to_gpu(x)
+    x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
+    #x = x.type(torch.FloatTensor)
+    x = norm(x)
+    return x
+
+def np2torch3D(x,opt):
+    # x starts as w,h,d,channels
+    x = x[:,:,:,:,None]
+    # x is now batch,channels,w,h,d and is in 0-1 range
+    x = x.transpose((4, 3, 0, 1, 2))
     x = torch.from_numpy(x)
     if not(opt.not_cuda):
         x = move_to_gpu(x)
@@ -195,15 +241,32 @@ def save_networks(netG,netD,z,opt):
     torch.save(z, '%s/z_opt.pth' % (opt.outf))
 
 def adjust_scales2image(real_,opt):
+    # real_: [batch_size, channels, width, height] (old)
+    # real_: [batch_size, channels, width, height, depth] (new)
     #opt.num_scales = int((math.log(math.pow(opt.min_size / (real_.shape[2]), 1), opt.scale_factor_init))) + 1
-    opt.num_scales = math.ceil((math.log(math.pow(opt.min_size / (min(real_.shape[2], real_.shape[3])), 1), opt.scale_factor_init))) + 1
-    scale2stop = math.ceil(math.log(min([opt.max_size, max([real_.shape[2], real_.shape[3]])]) / max([real_.shape[2], real_.shape[3]]),opt.scale_factor_init))
+    opt.num_scales = math.ceil(
+        (math.log(
+            math.pow(opt.min_size / (min(real_.shape[2], real_.shape[3], real_.shape[4])), 1), 
+            opt.scale_factor_init))) + 1
+    scale2stop = math.ceil(
+        math.log(
+            min([
+                opt.max_size, 
+                max([real_.shape[2], real_.shape[3], real_.shape[4]])
+            ]) / max([real_.shape[2], real_.shape[3], real_.shape[4]]),opt.scale_factor_init))
     opt.stop_scale = opt.num_scales - scale2stop
-    opt.scale1 = min(opt.max_size / max([real_.shape[2], real_.shape[3]]),1)  # min(250/max([real_.shape[0],real_.shape[1]]),1)
-    real = imresize(real_, opt.scale1, opt)
+    opt.scale1 = min(opt.max_size / max([real_.shape[2], real_.shape[3], real_.shape[4]]),1)  # min(250/max([real_.shape[0],real_.shape[1]]),1)
+    real = imresize3D(real_, opt.scale1, opt)
     #opt.scale_factor = math.pow(opt.min_size / (real.shape[2]), 1 / (opt.stop_scale))
-    opt.scale_factor = math.pow(opt.min_size/(min(real.shape[2],real.shape[3])),1/(opt.stop_scale))
-    scale2stop = math.ceil(math.log(min([opt.max_size, max([real_.shape[2], real_.shape[3]])]) / max([real_.shape[2], real_.shape[3]]),opt.scale_factor_init))
+    opt.scale_factor = math.pow(
+        opt.min_size/(min(real.shape[2],real.shape[3], real_.shape[4])),
+        1/(opt.stop_scale))
+    scale2stop = math.ceil(
+        math.log(
+            min([
+                opt.max_size, 
+                max([real_.shape[2], real_.shape[3], real_.shape[4]])
+            ]) / max([real_.shape[2], real_.shape[3], real_.shape[4]]),opt.scale_factor_init))
     opt.stop_scale = opt.num_scales - scale2stop
     return real
 
@@ -228,6 +291,14 @@ def creat_reals_pyramid(real,reals,opt):
         reals.append(curr_real)
     return reals
 
+def creat_reals_pyramid3D(real,reals,opt):
+    real = real[:,:,:,:]
+    for i in range(0,opt.stop_scale+1,1):
+        scale = math.pow(opt.scale_factor,opt.stop_scale-i)
+        curr_real = imresize3D(real,scale,opt)
+        reals.append(curr_real)
+    return reals
+
 
 def load_trained_pyramid(opt, mode_='train'):
     #dir = 'TrainedModels/%s/scale_factor=%f' % (opt.input_name[:-4], opt.scale_factor_init)
@@ -247,6 +318,15 @@ def load_trained_pyramid(opt, mode_='train'):
         print('no appropriate trained model is exist, please train first')
     opt.mode = mode
     return Gs,Zs,reals,NoiseAmp
+
+def generate_in2coarsest3D(reals,scale_v,scale_h,scale_z,opt):
+    real = reals[opt.gen_start_scale]
+    real_down = upsampling3D(real, scale_v * real.shape[2], scale_h * real.shape[3], scale_h * real.shape[4])
+    if opt.gen_start_scale == 0:
+        in_s = torch.full(real_down.shape, 0, device=opt.device)
+    else: #if n!=0
+        in_s = upsampling3D(real_down, real_down.shape[2], real_down.shape[3], real_down.shape[4])
+    return in_s
 
 def generate_in2coarsest(reals,scale_v,scale_h,opt):
     real = reals[opt.gen_start_scale]

@@ -22,6 +22,7 @@ def move_to_gpu(t):
     return t
 
 def np2torch(x,opt):
+    assert False, 'Do not use in 3d mode'
     if opt.nc_im >= 3:
         x = x[:,:,:,None]
         x = x.transpose((3, 2, 0, 1))/255
@@ -37,6 +38,18 @@ def np2torch(x,opt):
     x = norm(x)
     return x
 
+def np2torch3D(x,opt):
+    # x starts as w,h,d,channels
+    x = x[:,:,:,:,None]
+    # x is now batch,channels,w,h,d and is in 0-1 range
+    x = x.transpose((4, 3, 0, 1, 2))
+    x = torch.from_numpy(x)
+    if not(opt.not_cuda):
+        x = move_to_gpu(x)
+    x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
+    #x = x.type(torch.FloatTensor)
+    x = norm(x)
+    return x
 def torch2uint8(x):
     x = x[0,:,:,:]
     x = x.permute((1,2,0))
@@ -47,10 +60,25 @@ def torch2uint8(x):
 
 
 def imresize(im,scale,opt):
+    assert False, "should not be called in 3d mode"
     #s = im.shape
     im = torch2uint8(im)
     im = imresize_in(im, scale_factor=scale)
     im = np2torch(im,opt)
+    #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
+    return im
+
+def imresize3D(im,scale,opt):
+    #s = im.shape
+    im = im[0]
+    # [channel,w,h,d]
+    im = im.permute((1,2,3,0))
+    # [w,h,d,channel]
+    im = denorm(im)
+    im = im.cpu().numpy()
+    im = imresize_in(im, scale_factor=scale)
+    im = np2torch3D(im,opt)
+    # [batch,channels,w,h,d]
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
     return im
 
@@ -69,6 +97,7 @@ def imresize_in(im, scale_factor=None, output_shape=None, kernel=None, antialias
 
     # For a given numeric kernel case, just do convolution and sub-sampling (downscaling only)
     if type(kernel) == np.ndarray and scale_factor[0] <= 1:
+        assert False, "not implemented for 3d!"
         return numeric_kernel(im, kernel, scale_factor, output_shape, kernel_shift_flag)
 
     # Choose interpolation method, each method has the matching kernel size
@@ -111,7 +140,7 @@ def fix_scale_and_size(input_shape, output_shape, scale_factor):
     if scale_factor is not None:
         # By default, if scale-factor is a scalar we assume 2d resizing and duplicate it.
         if np.isscalar(scale_factor):
-            scale_factor = [scale_factor, scale_factor]
+            scale_factor = [scale_factor, scale_factor, scale_factor]
 
         # We extend the size of scale-factor list to the size of the input by assigning 1 to all the unspecified scales
         scale_factor = list(scale_factor)
