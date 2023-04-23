@@ -216,17 +216,6 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
                         errG += opt.sim_alpha * sim_loss(fake_adjusted[:,3:], real_adjusted[:,3:])
             elif opt.sim_alpha != 0:
                 assert False, "Incorrect use of sim alpha."
-            # Penalize mask loss
-            fake_mask, real_mask = None, None
-            if opt.penalize_mask:
-                fake_adjusted = (fake + 1) / 2
-                real_adjusted = (real + 1) / 2
-                fake_mask = torch.zeros_like(fake_adjusted)
-                fake_mask[fake_adjusted[:,1][:,None].expand(fake_adjusted.shape) > 0.1] = 1
-                real_mask = torch.zeros_like(real_adjusted)
-                real_mask[real_adjusted[:,1][:,None].expand(real_adjusted.shape) > 0.1] = 1
-                assert not opt.split_images, "Split images has not been implemented for penalizing the mask"
-                errG += ssim_target(fake_mask, real_mask)
             errG.backward(retain_graph=True)
 
             if alpha!=0:
@@ -254,10 +243,6 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
 
         if epoch % 500 == 0 or epoch == (opt.niter-1):
             plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np(fake.detach()), vmin=0, vmax=1)
-            if fake_mask != None:
-                plt.imsave('%s/fake_mask.png' %  (opt.outf), functions.convert_image_np(fake_mask.detach()), vmin=0, vmax=1)
-            if real_mask != None:
-                plt.imsave('%s/real_mask.png' %  (opt.outf), functions.convert_image_np(real_mask.detach()), vmin=0, vmax=1)
             plt.imsave('%s/G(z_opt).png'    % (opt.outf),  functions.convert_image_np(netG(Z_opt.detach(), z_prev).detach()), vmin=0, vmax=1)
             #plt.imsave('%s/D_fake.png'   % (opt.outf), functions.convert_image_np(D_fake_map))
             #plt.imsave('%s/D_real.png'   % (opt.outf), functions.convert_image_np(D_real_map))
