@@ -7,7 +7,7 @@ import torch.optim as optim
 import torch.utils.data
 import math
 import matplotlib.pyplot as plt
-from SinGAN.imresize import imresize
+from SinGAN.imresize import imresize, imresize3D
 from torchmetrics.functional import structural_similarity_index_measure as ssim
 from SinGAN.perceptual import VGGLoss
 
