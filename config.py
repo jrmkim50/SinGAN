@@ -45,8 +45,10 @@ def get_arguments():
     parser.add_argument('--sim_boundary',type=int, help='Apply sim loss from pyramid layers [sim_boundary, num_stages) or [0,sim_boundary]',default=3)
     parser.add_argument('--sim_boundary_type',type=str, help='Is the boundary a start or an end?',default='start')
     parser.add_argument('--sim_type',type=str, help='What type of sim loss?',default='vgg')
-    parser.add_argument('--use_attention',type=int, help='Use attention?',default=1)
-    parser.add_argument('--use_attention_end',type=int, help='Use attention?',default=1)
+    parser.add_argument('--use_attention_g',type=int, help='Use attention?',default=1)
+    parser.add_argument('--use_attention_end_g',type=int, help='Use attention?',default=1)
+    parser.add_argument('--use_attention_d',type=int, help='Use attention?',default=1)
+    parser.add_argument('--use_attention_end_d',type=int, help='Use attention?',default=1)
 
     
     return parser

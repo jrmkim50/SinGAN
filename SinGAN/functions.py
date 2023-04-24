@@ -340,13 +340,13 @@ def generate_in2coarsest(reals,scale_v,scale_h,opt):
 def generate_dir2save(opt):
     dir2save = None
     if (opt.mode == 'train') | (opt.mode == 'SR_train'):
-        dir2save = f'TrainedModels/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},sim_type={opt.sim_type},alpha={opt.alpha:.3f},use_attn={opt.use_attention},use_attn_end={opt.use_attention_end},nfc={opt.nfc_init},min_size={opt.min_size}'
+        dir2save = f'TrainedModels/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},sim_type={opt.sim_type},alpha={opt.alpha:.3f},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size}'
     elif (opt.mode == 'animation_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (opt.input_name[:-4], opt.scale_factor_init)
     elif (opt.mode == 'paint_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_paint/start_scale=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.paint_start_scale)
     elif opt.mode == 'random_samples':
-        dir2save = f'{opt.out}/RandomSamples/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},sim_type={opt.sim_type},alpha={opt.alpha:.3f},use_attn={opt.use_attention},use_attn_end={opt.use_attention_end},nfc={opt.nfc_init},min_size={opt.min_size}/gen_start_scale={opt.gen_start_scale}'
+        dir2save = f'{opt.out}/RandomSamples/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},sim_type={opt.sim_type},alpha={opt.alpha:.3f},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size}/gen_start_scale={opt.gen_start_scale}'
     elif opt.mode == 'random_samples_arbitrary_sizes':
         dir2save = '%s/RandomSamples_ArbitrerySizes/%s/scale_v=%f_scale_h=%f' % (opt.out,opt.input_name[:-4], opt.scale_v, opt.scale_h)
     elif opt.mode == 'animation':
