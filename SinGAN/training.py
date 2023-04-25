@@ -69,6 +69,13 @@ class TargetSimLoss(nn.Module):
 
     def forward(self, fake, real):
         return torch.abs(self.ssim(fake, real) - self.target)
+    
+class SimLoss(nn.Module):
+    def __init__(self):
+        super(SimLoss, self).__init__()
+
+    def forward(self, fake, real):
+        return -1 * ssim(fake, real)
 
 def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
     real = reals3D[len(Gs)]
@@ -105,14 +112,13 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
     z_opt2plot = []
 
 
-    vgg_loss = VGGLoss().cuda()
     ssim_target = TargetSimLoss(0.8, ssim).cuda()
     sim_loss = None
     assert opt.sim_type in ["vgg", "ssim", "ssim_target"]
     assert opt.sim_type != "vgg" # vgg not implemented for 3d
     assert opt.sim_boundary_type in ["start", "end"]
     if opt.sim_type == "ssim":
-        sim_loss = ssim
+        sim_loss = SimLoss().cuda()
     elif opt.sim_type == "vgg":
         sim_loss = vgg_loss
     elif opt.sim_type == "ssim_target":
