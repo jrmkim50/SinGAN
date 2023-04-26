@@ -224,7 +224,7 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
             errG.backward(retain_graph=True)
 
             if alpha!=0:
-                loss = nn.MSELoss()
+                loss = nn.L1Loss()
                 if opt.mode == 'paint_train':
                     assert False, "not implemented"
                     z_prev = functions.quant2centers(z_prev, centers)
