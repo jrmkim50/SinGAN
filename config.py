@@ -24,6 +24,7 @@ def get_arguments():
     parser.add_argument('--num_layer',type=int,help='number of layers',default=5)
     parser.add_argument('--stride',help='stride',default=1)
     parser.add_argument('--padd_size',type=int,help='net pad size',default=0)#math.floor(opt.ker_size/2)
+    parser.add_argument('--act_type',type=str, help='What type of activation?',default='lrelu')
         
     #pyramid parameters:
     parser.add_argument('--scale_factor',type=float,help='pyramid scale factor',default=0.75)#pow(0.5,1/6))

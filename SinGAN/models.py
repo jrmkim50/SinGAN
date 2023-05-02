@@ -13,11 +13,15 @@ class Snake(nn.Module):
         return x * (1 / self.alpha) * torch.sin(x)* torch.sin(x)
 
 class ConvBlock(nn.Sequential):
-    def __init__(self, in_channel, out_channel, ker_size, padd, stride, use_attn=False):
+    def __init__(self, in_channel, out_channel, ker_size, padd, stride, opt, use_attn=False,):
         super(ConvBlock,self).__init__()
         self.add_module('conv',nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
         self.add_module('norm',nn.BatchNorm3d(out_channel))
-        self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
+        assert opt.act_type in ['lrelu', 'snake']
+        if opt.act_type == 'lrelu':
+            self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
+        elif opt.act_type == 'snake':
+            self.add_module('Snake',Snake(10))
         if use_attn:
             self.add_module('CBAM', attention.CBAM(out_channel))
 
@@ -28,22 +32,22 @@ def weights_init(m):
     elif classname.find('Norm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
-   
+
 class WDiscriminator(nn.Module):
     def __init__(self, opt):
         super(WDiscriminator, self).__init__()
         self.is_cuda = torch.cuda.is_available()
         N = int(opt.nfc)
-        self.head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1)
+        self.head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt)
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
             if i == (opt.num_layer - 2) // 2:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,use_attn=opt.use_attention_d)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_d)
             elif i == (opt.num_layer - 2 - 1):
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,use_attn=opt.use_attention_end_d)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_d)
             else:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt)
             self.body.add_module('block%d'%(i+1),block)
         self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
 
@@ -59,16 +63,16 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         super(GeneratorConcatSkip2CleanAdd, self).__init__()
         self.is_cuda = torch.cuda.is_available()
         N = opt.nfc
-        self.head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1) #GenConvTransBlock(opt.nc_z,N,opt.ker_size,opt.padd_size,opt.stride)
+        self.head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt) #GenConvTransBlock(opt.nc_z,N,opt.ker_size,opt.padd_size,opt.stride)
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
             if i == (opt.num_layer - 2) // 2:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,use_attn=opt.use_attention_g)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_g)
             elif i == (opt.num_layer - 2 - 1):
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,use_attn=opt.use_attention_end_g)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_g)
             else:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt)
             self.body.add_module('block%d'%(i+1),block)
         self.tail = nn.Sequential(
             nn.Conv3d(max(N,opt.min_nfc),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
