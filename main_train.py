@@ -24,7 +24,7 @@ if __name__ == '__main__':
             os.makedirs(dir2save)
         except OSError:
             pass
-        real = functions.read_image3D(opt)
+        real, _ = functions.read_image3D(opt)
         functions.adjust_scales2image(real, opt)
         train(opt, Gs, Zs, reals, NoiseAmp)
         SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,eval=True)

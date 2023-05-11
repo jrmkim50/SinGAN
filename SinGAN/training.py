@@ -10,13 +10,21 @@ import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize, imresize3D
 from torchmetrics.functional import structural_similarity_index_measure as ssim
 from SinGAN.perceptual import VGGLoss
+import random
 
 def train(opt,Gs,Zs,reals,NoiseAmp):
-    real_ = functions.read_image3D(opt)
+    real_, extra_images = functions.read_image3D(opt)
     in_s = 0
+    in_s_z_opt = 0
     scale_num = 0
     real = imresize3D(real_,opt.scale1,opt)
+    for idx in range(len(extra_images)):
+        # Resize each extra image to fit the original scale
+        extra_images[idx] = imresize3D(extra_images[idx], opt.scale1, opt)
     reals = functions.creat_reals_pyramid3D(real,reals,opt)
+    extra_pyramids = []
+    for image in extra_images:
+        extra_pyramids.append(functions.creat_reals_pyramid3D(image, [], opt))
     nfc_prev = 0
     print("Num layers:", opt.stop_scale)
 
@@ -40,7 +48,7 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
             G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
 
-        z_curr,in_s,G_curr = train_single_scale3D(D_curr,G_curr,reals,Gs,Zs,in_s,NoiseAmp,opt)
+        z_curr,in_s,in_s_z_opt,G_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt)
 
         G_curr = functions.reset_grads(G_curr,False)
         G_curr.eval()
@@ -77,8 +85,12 @@ class SimLoss(nn.Module):
     def forward(self, fake, real):
         return -1 * ssim(fake, real)
 
-def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
+def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,centers=None):
     real = reals3D[len(Gs)]
+    to_cat = [real,]
+    to_cat += [pyramid[len(Gs)] for pyramid in extra_pyramids]
+    real_and_extra = torch.cat(to_cat).to(opt.device)
+    total_samps = len(real_and_extra)
     opt.nzx = real.shape[2]#+(opt.ker_size-1)*(opt.num_layer)
     opt.nzy = real.shape[3]#+(opt.ker_size-1)*(opt.num_layer)
     opt.nzz = real.shape[4]#+(opt.ker_size-1)*(opt.num_layer)
@@ -95,7 +107,7 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
 
     alpha = opt.alpha
 
-    fixed_noise3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz],device=opt.device)
+    fixed_noise3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz],device=opt.device,num_samp=total_samps)
     z_opt3D = torch.full(fixed_noise3D.shape, 0, device=opt.device)
     z_opt3D = m_noise3D(z_opt3D)
 
@@ -126,8 +138,8 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
 
     for epoch in range(opt.niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
-            z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
-            z_opt3D = m_noise3D(z_opt3D.expand(1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
+            z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=total_samps)
+            z_opt3D = m_noise3D(z_opt3D.expand(total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
             noise_3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
             noise_3D = m_noise3D(noise_3D.expand(1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
         else:
@@ -141,7 +153,7 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
             # train with real
             netD.zero_grad()
 
-            output = netD(real).to(opt.device)
+            output = netD(real_and_extra).to(opt.device)
             #D_real_map = output.detach()
             errD_real = -output.mean()#-a
             errD_real.backward(retain_graph=True)
@@ -153,7 +165,8 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
                     prev = torch.full([1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
                     in_s = prev
                     prev = m_image3D(prev)
-                    z_prev3D = torch.full([1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
+                    z_prev3D = torch.full([total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
+                    in_s_z_opt = z_prev3D
                     z_prev3D = m_noise3D(z_prev3D)
                     opt.noise_amp = 1
                 elif opt.mode == 'SR_train':
@@ -166,9 +179,11 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
                 else:
                     prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
                     prev = m_image3D(prev)
-                    z_prev3D = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rec',m_noise3D,m_image3D,opt)
+                    assert in_s_z_opt.shape[:2] == real_and_extra.shape[:2], f"{in_s_z_opt.shape} versus {real_and_extra.shape}"
+                    z_prev3D = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s_z_opt,'rec',m_noise3D,m_image3D,opt)
                     criterion = nn.MSELoss()
-                    RMSE = torch.sqrt(criterion(real, z_prev3D))
+                    assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
+                    RMSE = torch.sqrt(criterion(real_and_extra, z_prev3D))
                     opt.noise_amp = opt.noise_amp_init*RMSE
                     z_prev3D = m_image3D(z_prev3D)
             else:
@@ -191,7 +206,28 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
             errD_fake.backward(retain_graph=True)
             D_G_z = output.mean().item()
 
-            gradient_penalty = functions.calc_gradient_penalty(netD, real, fake, opt.lambda_grad, opt.device)
+            if errD_fake > 0 and opt.sim_loss_d:
+                # Similarity loss (only apply for sim alpha != 0)
+                if opt.sim_alpha != 0 and opt.sim_boundary_type == "start":
+                    if len(Gs) >= opt.sim_boundary:
+                        fake_adjusted = (fake + 1) / 2
+                        real_idx = random.choice(range(real_and_extra.shape[0]))
+                        real_adjusted = (real_and_extra[real_idx][None] + 1) / 2
+                        # If fake image is very realistic, sim_loss returns -1, and we should not increase
+                        # errD_fake by too much. If fake image is unrealistic but discrim said image was real
+                        # we should penalize more heavily.
+                        errD_fake += opt.sim_alpha * (1+sim_loss(fake_adjusted, real_adjusted))
+                elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
+                    if len(Gs) <= opt.sim_boundary:
+                        fake_adjusted = (fake + 1) / 2
+                        real_idx = random.choice(range(real_and_extra.shape[0]))
+                        real_adjusted = (real_and_extra[real_idx][None] + 1) / 2
+                        # If fake image is very realistic, sim_loss returns -1, and we should not increase
+                        # errD_fake by too much. If fake image is unrealistic but discrim said image was real
+                        # we should penalize more heavily.
+                        errD_fake += opt.sim_alpha * (1+sim_loss(fake_adjusted, real_adjusted))
+
+            gradient_penalty = functions.calc_gradient_penalty(netD, real_and_extra, fake, opt.lambda_grad, opt.device)
             gradient_penalty.backward()
 
             errD = errD_real + errD_fake + gradient_penalty
@@ -212,12 +248,14 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
             if opt.sim_alpha != 0 and opt.sim_boundary_type == "start":
                 if len(Gs) >= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
-                    real_adjusted = (real + 1) / 2
+                    real_idx = random.choice(range(real_and_extra.shape[0]))
+                    real_adjusted = (real_and_extra[real_idx][None] + 1) / 2
                     errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
-                    real_adjusted = (real + 1) / 2
+                    real_idx = random.choice(range(real_and_extra.shape[0]))
+                    real_adjusted = (real_and_extra[real_idx][None] + 1) / 2
                     errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
             elif opt.sim_alpha != 0:
                 assert False, "Incorrect use of sim alpha."
@@ -230,7 +268,9 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
                     z_prev = functions.quant2centers(z_prev, centers)
                     plt.imsave('%s/z_prev.png' % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
                 Z_opt = opt.noise_amp*z_opt3D+z_prev3D
-                rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D),real)
+                assert Z_opt.shape[:2] == real_and_extra.shape[:2], f"{Z_opt.shape} versus {real_and_extra.shape}"
+                assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
+                rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D),real_and_extra)
                 rec_loss.backward(retain_graph=True)
                 rec_loss = rec_loss.detach()
             else:
@@ -249,7 +289,9 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
 
         if epoch % 500 == 0 or epoch == (opt.niter-1):
             plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np3D(fake.detach()), vmin=0, vmax=1)
-            plt.imsave('%s/G(z_opt).png'    % (opt.outf),  functions.convert_image_np3D(netG(Z_opt.detach(), z_prev3D).detach()), vmin=0, vmax=1)
+            opt_imgs = netG(Z_opt.detach(), z_prev3D).detach()
+            for idx, opt_img in enumerate(opt_imgs):
+                plt.imsave('%s/G(z_opt)_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(opt_img[None]), vmin=0, vmax=1)
             #plt.imsave('%s/D_fake.png'   % (opt.outf), functions.convert_image_np(D_fake_map))
             #plt.imsave('%s/D_real.png'   % (opt.outf), functions.convert_image_np(D_real_map))
             #plt.imsave('%s/z_opt.png'    % (opt.outf), functions.convert_image_np(z_opt.detach()), vmin=0, vmax=1)
@@ -264,7 +306,7 @@ def train_single_scale3D(netD,netG,reals3D,Gs,Zs,in_s,NoiseAmp,opt,centers=None)
         schedulerG.step()
 
     functions.save_networks(netG,netD,z_opt3D,opt)
-    return z_opt3D,in_s,netG    
+    return z_opt3D,in_s,in_s_z_opt,netG    
 
 def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     G_z = in_s

@@ -28,10 +28,23 @@ def read_image(opt):
 def read_image3D(opt):
     x = nib.load('%s/%s' % (opt.input_dir,opt.input_name)).get_fdata()
     if len(x.shape) == 3:
+        # Add channel axis
         x = x[:,:,:,None]
     opt.nc_im = x.shape[-1]
     opt.nc_z = x.shape[-1]
-    return np2torch3D(x,opt)
+    x = np2torch3D(x,opt)
+    extra_images = []
+    for num in range(opt.few_gan):
+        # FewGAN reference image is of the form [opt.input_dir]/[opt.input_name (chop off file extension)]_[num].[extension]
+        file_name = opt.input_name.split(".")[0]
+        extension = ".".join(opt.input_name.split(".")[1:]) # Extension has no leading period
+        reference = nib.load(f"{opt.input_dir}/{file_name}_{num}.{extension}").get_fdata()
+        if len(reference.shape) == 3:
+            # Add channel axis
+            reference = reference[:,:,:,None]
+        reference = np2torch3D(reference,opt)
+        extra_images.append(reference)
+    return x, extra_images
 
 def denorm(x):
     out = (x + 1) / 2
@@ -166,6 +179,7 @@ def move_to_cpu(t):
 
 def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
     #print real_data.size()
+    fake_data = fake_data.expand(real_data.size())
     alpha = torch.rand(1, 1)
     alpha = alpha.expand(real_data.size())
     alpha = alpha.to(device)#cuda() #gpu) #if use_cuda else alpha
@@ -340,13 +354,13 @@ def generate_in2coarsest(reals,scale_v,scale_h,opt):
 def generate_dir2save(opt):
     dir2save = None
     if (opt.mode == 'train') | (opt.mode == 'SR_train'):
-        dir2save = f'TrainedModels/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},sim_type={opt.sim_type},alpha={opt.alpha:.3f},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size},act={opt.act_type},discrim_no_spatial={opt.discrim_no_spatial}'
+        dir2save = f'TrainedModels/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},sim_type={opt.sim_type},alpha={opt.alpha:.3f},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size},act={opt.act_type},discrim_no_spatial={opt.discrim_no_spatial},few_gan={opt.few_gan},sim_loss_d={opt.sim_loss_d}'
     elif (opt.mode == 'animation_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_noise_padding' % (opt.input_name[:-4], opt.scale_factor_init)
     elif (opt.mode == 'paint_train') :
         dir2save = 'TrainedModels/%s/scale_factor=%f_paint/start_scale=%d' % (opt.input_name[:-4], opt.scale_factor_init,opt.paint_start_scale)
     elif opt.mode == 'random_samples':
-        dir2save = f'{opt.out}/RandomSamples/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},sim_type={opt.sim_type},alpha={opt.alpha:.3f},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size},act={opt.act_type},discrim_no_spatial={opt.discrim_no_spatial}/gen_start_scale={opt.gen_start_scale}'
+        dir2save = f'{opt.out}/RandomSamples/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},sim_type={opt.sim_type},alpha={opt.alpha:.3f},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size},act={opt.act_type},discrim_no_spatial={opt.discrim_no_spatial},few_gan={opt.few_gan},sim_loss_d={opt.sim_loss_d}/gen_start_scale={opt.gen_start_scale}'
     elif opt.mode == 'random_samples_arbitrary_sizes':
         dir2save = '%s/RandomSamples_ArbitrerySizes/%s/scale_v=%f_scale_h=%f' % (opt.out,opt.input_name[:-4], opt.scale_v, opt.scale_h)
     elif opt.mode == 'animation':

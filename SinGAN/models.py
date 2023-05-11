@@ -17,11 +17,7 @@ class ConvBlock(nn.Sequential):
         super(ConvBlock,self).__init__()
         self.add_module('conv',nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
         self.add_module('norm',nn.BatchNorm3d(out_channel))
-        assert opt.act_type in ['lrelu', 'snake']
-        if opt.act_type == 'lrelu':
-            self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
-        elif opt.act_type == 'snake':
-            self.add_module('Snake',Snake(10))
+        self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
         if use_attn:
             if generator:
                 self.add_module('CBAM', attention.CBAM(out_channel))

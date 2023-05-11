@@ -70,15 +70,20 @@ def imresize(im,scale,opt):
 
 def imresize3D(im,scale,opt):
     #s = im.shape
-    im = im[0]
-    # [channel,w,h,d]
-    im = im.permute((1,2,3,0))
-    # [w,h,d,channel]
-    im = denorm(im)
-    im = im.cpu().numpy()
-    im = imresize_in(im, scale_factor=scale)
-    im = np2torch3D(im,opt)
-    # [batch,channels,w,h,d]
+    ims = []
+    for idx in range(im.shape[0]):
+        im_ = im[idx]
+        # [channel,w,h,d]
+        im_ = im_.permute((1,2,3,0))
+        # [w,h,d,channel]
+        im_ = denorm(im_)
+        im_ = im_.cpu().numpy()
+        assert len(im_.shape) == 4
+        im_ = imresize_in(im_, scale_factor=scale)
+        im_ = np2torch3D(im_,opt)
+        # [batch,channels,w,h,d]
+        ims.append(im_[0])
+    im = torch.stack(ims)
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
     return im
 

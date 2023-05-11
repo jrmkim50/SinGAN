@@ -52,5 +52,8 @@ def get_arguments():
     parser.add_argument('--use_attention_d',type=int, help='Use attention?',default=1)
     parser.add_argument('--use_attention_end_d',type=int, help='Use attention?',default=1)
 
+    parser.add_argument('--few_gan',type=int, help='Number of reference images',default=0) # Name credit to Cole Kissane!
+    parser.add_argument('--sim_loss_d',type=int, help='Apply sim loss to discrim',default=0) # Name credit to Cole Kissane!
+
     
     return parser
