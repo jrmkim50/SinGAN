@@ -97,11 +97,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     opt.receptive_field = opt.ker_size + ((opt.ker_size-1)*(opt.num_layer-1))*opt.stride
     pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2)
     pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2)
-    if opt.mode == 'animation_train':
-        assert False, "not implemented"
-        opt.nzx = real.shape[2]+(opt.ker_size-1)*(opt.num_layer)
-        opt.nzy = real.shape[3]+(opt.ker_size-1)*(opt.num_layer)
-        pad_noise = 0
     m_noise3D = nn.ConstantPad3d(int(pad_noise), 0)
     m_image3D = nn.ConstantPad3d(int(pad_image), 0)
 
@@ -169,13 +164,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                     in_s_z_opt = z_prev3D
                     z_prev3D = m_noise3D(z_prev3D)
                     opt.noise_amp = 1
-                elif opt.mode == 'SR_train':
-                    z_prev3D = in_s
-                    criterion = nn.MSELoss()
-                    RMSE = torch.sqrt(criterion(real, z_prev3D))
-                    opt.noise_amp = opt.noise_amp_init * RMSE
-                    z_prev3D = m_image3D(z_prev3D)
-                    prev = z_prev3D
                 else:
                     prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
                     prev = m_image3D(prev)
