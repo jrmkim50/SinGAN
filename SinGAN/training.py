@@ -14,6 +14,8 @@ import random
 
 def train(opt,Gs,Zs,reals,NoiseAmp):
     real_, extra_images = functions.read_image3D(opt)
+    for extra_image in extra_images:
+        assert extra_image.shape == real_.shape
     in_s = 0
     in_s_z_opt = 0
     scale_num = 0
@@ -21,10 +23,17 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
     for idx in range(len(extra_images)):
         # Resize each extra image to fit the original scale
         extra_images[idx] = imresize3D(extra_images[idx], opt.scale1, opt)
+    for extra_image in extra_images:
+        assert extra_image.shape == real.shape
     reals = functions.creat_reals_pyramid3D(real,reals,opt)
     extra_pyramids = []
     for image in extra_images:
         extra_pyramids.append(functions.creat_reals_pyramid3D(image, [], opt))
+    for pyramid in extra_pyramids:
+        assert len(pyramid) == len(reals)
+        for pyramid_level in range(len(pyramid)):
+            assert pyramid[pyramid_level].shape == reals[pyramid_level].shape
+            assert abs(pyramid[pyramid_level]-reals[pyramid_level]).sum() != 0
     nfc_prev = 0
     print("Num layers:", opt.stop_scale)
 
@@ -89,6 +98,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     real = reals3D[len(Gs)]
     to_cat = [real,]
     to_cat += [pyramid[len(Gs)] for pyramid in extra_pyramids]
+    for im in to_cat:
+        assert im.shape == real.shape
     real_and_extra = torch.cat(to_cat).to(opt.device)
     total_samps = len(real_and_extra)
     opt.nzx = real.shape[2]#+(opt.ker_size-1)*(opt.num_layer)
@@ -238,12 +249,14 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                     fake_adjusted = (fake + 1) / 2
                     real_idx = random.choice(range(real_and_extra.shape[0]))
                     real_adjusted = (real_and_extra[real_idx][None] + 1) / 2
+                    assert fake_adjusted.shape == real_adjusted.shape
                     errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
                     real_idx = random.choice(range(real_and_extra.shape[0]))
                     real_adjusted = (real_and_extra[real_idx][None] + 1) / 2
+                    assert fake_adjusted.shape == real_adjusted.shape
                     errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
             elif opt.sim_alpha != 0:
                 assert False, "Incorrect use of sim alpha."
@@ -251,6 +264,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             if alpha!=0:
                 loss = nn.L1Loss()
+                assert z_opt3D.shape == z_prev3D.shape
                 Z_opt = opt.noise_amp*z_opt3D+z_prev3D
                 assert Z_opt.shape[:2] == real_and_extra.shape[:2], f"{Z_opt.shape} versus {real_and_extra.shape}"
                 assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
