@@ -152,6 +152,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             noise_3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
             noise_3D = m_noise3D(noise_3D)
 
+        SELECTED_IDX = random.choice(range(total_samps))
+        SELECTED_REAL = real_and_extra[SELECTED_IDX][None]
+
         ############################
         # (1) Update D network: maximize D(x) + D(G(z))
         ###########################
@@ -159,7 +162,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             # train with real
             netD.zero_grad()
 
-            output = netD(real_and_extra).to(opt.device)
+            output = netD(SELECTED_REAL).to(opt.device)
             #D_real_map = output.detach()
             errD_real = -output.mean()#-a
             errD_real.backward(retain_graph=True)
@@ -226,7 +229,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                         # we should penalize more heavily.
                         errD_fake += opt.sim_alpha * (1+sim_loss(fake_adjusted, real_adjusted))
 
-            gradient_penalty = functions.calc_gradient_penalty(netD, real_and_extra, fake, opt.lambda_grad, opt.device)
+            gradient_penalty = functions.calc_gradient_penalty(netD, SELECTED_REAL, fake, opt.lambda_grad, opt.device)
             gradient_penalty.backward()
 
             errD = errD_real + errD_fake + gradient_penalty
@@ -247,15 +250,13 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             if opt.sim_alpha != 0 and opt.sim_boundary_type == "start":
                 if len(Gs) >= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
-                    real_idx = random.choice(range(real_and_extra.shape[0]))
-                    real_adjusted = (real_and_extra[real_idx][None] + 1) / 2
+                    real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
-                    real_idx = random.choice(range(real_and_extra.shape[0]))
-                    real_adjusted = (real_and_extra[real_idx][None] + 1) / 2
+                    real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
             elif opt.sim_alpha != 0:
@@ -268,7 +269,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 Z_opt = opt.noise_amp*z_opt3D+z_prev3D
                 assert Z_opt.shape[:2] == real_and_extra.shape[:2], f"{Z_opt.shape} versus {real_and_extra.shape}"
                 assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
-                rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D),real_and_extra)
+                rec_loss = alpha*loss(netG(Z_opt[SELECTED_IDX][None].detach(),z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
                 rec_loss.backward(retain_graph=True)
                 rec_loss = rec_loss.detach()
             else:

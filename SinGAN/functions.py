@@ -179,7 +179,7 @@ def move_to_cpu(t):
 
 def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
     #print real_data.size()
-    fake_data = fake_data.expand(real_data.size())
+    # fake_data = fake_data.expand(real_data.size())
     alpha = torch.rand(1, 1)
     alpha = alpha.expand(real_data.size())
     alpha = alpha.to(device)#cuda() #gpu) #if use_cuda else alpha
