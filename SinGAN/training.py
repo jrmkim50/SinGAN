@@ -162,7 +162,13 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             # train with real
             netD.zero_grad()
 
-            output = netD(SELECTED_REAL).to(opt.device)
+            if not opt.sim_cond_d:
+                input_d_real = SELECTED_REAL
+            else:   
+                ssim_channel = torch.ones(SELECTED_REAL.shape).to(opt.device)
+                input_d_real = torch.cat([SELECTED_REAL, ssim_channel], axis=1)
+
+            output = netD(input_d_real).to(opt.device)
             #D_real_map = output.detach()
             errD_real = -output.mean()#-a
             errD_real.backward(retain_graph=True)
@@ -203,33 +209,19 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 noise3D = opt.noise_amp*noise_3D+prev
 
             fake = netG(noise3D.detach(),prev)
-            output = netD(fake.detach())
+
+            if not opt.sim_cond_d:
+                input_d_fake = fake
+            else:
+                ssim_channel = torch.full(fake.shape, ssim((fake.detach() + 1) / 2, (SELECTED_REAL + 1) / 2)).to(opt.device)
+                input_d_fake = torch.cat([fake, ssim_channel], axis=1)
+
+            output = netD(input_d_fake.detach())
             errD_fake = output.mean()
             errD_fake.backward(retain_graph=True)
             D_G_z = output.mean().item()
 
-            if errD_fake > 0 and opt.sim_loss_d:
-                # Similarity loss (only apply for sim alpha != 0)
-                if opt.sim_alpha != 0 and opt.sim_boundary_type == "start":
-                    if len(Gs) >= opt.sim_boundary:
-                        fake_adjusted = (fake + 1) / 2
-                        real_idx = random.choice(range(real_and_extra.shape[0]))
-                        real_adjusted = (real_and_extra[real_idx][None] + 1) / 2
-                        # If fake image is very realistic, sim_loss returns -1, and we should not increase
-                        # errD_fake by too much. If fake image is unrealistic but discrim said image was real
-                        # we should penalize more heavily.
-                        errD_fake += opt.sim_alpha * (1+sim_loss(fake_adjusted, real_adjusted))
-                elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
-                    if len(Gs) <= opt.sim_boundary:
-                        fake_adjusted = (fake + 1) / 2
-                        real_idx = random.choice(range(real_and_extra.shape[0]))
-                        real_adjusted = (real_and_extra[real_idx][None] + 1) / 2
-                        # If fake image is very realistic, sim_loss returns -1, and we should not increase
-                        # errD_fake by too much. If fake image is unrealistic but discrim said image was real
-                        # we should penalize more heavily.
-                        errD_fake += opt.sim_alpha * (1+sim_loss(fake_adjusted, real_adjusted))
-
-            gradient_penalty = functions.calc_gradient_penalty(netD, SELECTED_REAL, fake, opt.lambda_grad, opt.device)
+            gradient_penalty = functions.calc_gradient_penalty(netD, input_d_real, input_d_fake, opt.lambda_grad, opt.device)
             gradient_penalty.backward()
 
             errD = errD_real + errD_fake + gradient_penalty
@@ -243,7 +235,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
         for j in range(opt.Gsteps):
             netG.zero_grad()
-            output = netD(fake)
+            output = netD(input_d_fake)
             #D_fake_map = output.detach()
             errG = -output.mean()
             # Similarity loss (only apply for sim alpha != 0)
