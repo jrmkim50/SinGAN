@@ -20,7 +20,10 @@ class ConvBlock(nn.Sequential):
             self.add_module('norm',nn.GroupNorm(min(32, out_channel // 2), out_channel))
         else:
             self.add_module('norm', nn.BatchNorm3d(out_channel))
-        self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
+        if not opt.prelu:
+            self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
+        else:
+            self.add_module('PRelu',nn.PReLU())
         if use_attn:
             if generator:
                 self.add_module('CBAM', attention.CBAM(out_channel))
