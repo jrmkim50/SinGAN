@@ -142,7 +142,16 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     elif opt.sim_type == "ssim_target":
         sim_loss = ssim_target
 
-    for epoch in range(opt.niter):
+    last_ten_ssims = []
+    def reached_ssim_limit(epoch):
+        if not opt.train_until_good or len(last_ten_ssims) == 0 or epoch >= 5000:
+            if epoch >= opt.niter:
+                print(len(last_ten_ssims), "reached ssim limit capacity", epoch)
+            return True
+        return torch.mean(torch.tensor(last_ten_ssims)) >= 0.7
+
+    epoch = 0
+    while (epoch < int(opt.niter) or not reached_ssim_limit(epoch)):
         if (Gs == []) & (opt.mode != 'SR_train'):
             z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=total_samps)
             z_opt3D = m_noise3D(z_opt3D.expand(total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
@@ -244,13 +253,21 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
-                    errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
+                    ssim_loss = sim_loss(fake_adjusted, real_adjusted)
+                    if len(last_ten_ssims) == 10:
+                        last_ten_ssims.pop(0)
+                    last_ten_ssims.append(-ssim_loss)
+                    errG += opt.sim_alpha * ssim_loss
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
-                    errG += opt.sim_alpha * sim_loss(fake_adjusted, real_adjusted)
+                    ssim_loss = sim_loss(fake_adjusted, real_adjusted)
+                    if len(last_ten_ssims) == 10:
+                        last_ten_ssims.pop(0)
+                    last_ten_ssims.append(-ssim_loss)
+                    errG += opt.sim_alpha * ssim_loss
             elif opt.sim_alpha != 0:
                 assert False, "Incorrect use of sim alpha."
             errG.backward(retain_graph=True)
@@ -295,6 +312,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
         schedulerD.step()
         schedulerG.step()
+
+        epoch += 1
 
     functions.save_networks(netG,netD,z_opt3D,opt)
     return z_opt3D,in_s,in_s_z_opt,netG    

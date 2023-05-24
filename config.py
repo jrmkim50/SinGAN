@@ -57,6 +57,7 @@ def get_arguments():
     parser.add_argument('--config_tag',type=str, help='extra identifying info',default="")
 
     parser.add_argument('--groupnorm', action='store_true', help='use groupnorm', default=0)
+    parser.add_argument('--train_until_good', action='store_true', help='train util ssim at least 0.7', default=0)
 
     
     return parser
