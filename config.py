@@ -56,5 +56,7 @@ def get_arguments():
     parser.add_argument('--sim_cond_d',type=int, help='Include sim score in discrim',default=0)
     parser.add_argument('--config_tag',type=str, help='extra identifying info',default="")
 
+    parser.add_argument('--groupnorm', action='store_true', help='use groupnorm', default=0)
+
     
     return parser
