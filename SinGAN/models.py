@@ -16,7 +16,10 @@ class ConvBlock(nn.Sequential):
     def __init__(self, in_channel, out_channel, ker_size, padd, stride, opt, use_attn=False, generator=True):
         super(ConvBlock,self).__init__()
         self.add_module('conv',nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
-        self.add_module('norm',nn.BatchNorm3d(out_channel))
+        if opt.groupnorm:
+            self.add_module('norm',nn.GroupNorm(min(32, out_channel // 2), out_channel))
+        else:
+            self.add_module('norm', nn.BatchNorm3d(out_channel))
         self.add_module('LeakyRelu',nn.LeakyReLU(0.2, inplace=True))
         if use_attn:
             if generator:
