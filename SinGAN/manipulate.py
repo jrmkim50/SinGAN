@@ -133,7 +133,7 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
             z_in = noise_amp*(z_curr)+I_prev
             I_curr = G(z_in.detach(),I_prev)
 
-            if n == len(reals)-1:
+            if n == len(reals)-1 or opt.save_all_scales:
                 if opt.mode == 'train':
                     dir2save = f'{opt.out}/RandomSamples/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size},few_gan={opt.few_gan},sim_cond_d={opt.sim_cond_d},num_layer_d={opt.num_layer_d}{opt.config_tag}/gen_start_scale={gen_start_scale}'
                 else:
@@ -148,9 +148,9 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
                     else:
                         # w,d,h,channel
                         data = functions.convert_image_np3D(I_curr.detach(), eval=True)
-                        plt.imsave('%s/%d-pet.png' % (dir2save, i), data[:,data.shape[1] // 2,:, 0], vmin=0,vmax=1)
+                        plt.imsave('%s/%d_%d-pet.png' % (dir2save, n, i), data[:,data.shape[1] // 2,:, 0], vmin=0,vmax=1)
                         pet_img = nib.Nifti1Image(data[:,:,:,0], np.eye(4))
-                        nib.save(pet_img, os.path.join(dir2save, f"{i}-pet.nii.gz"))
+                        nib.save(pet_img, os.path.join(dir2save, f"{n}_{i}-pet.nii.gz"))
                     #plt.imsave('%s/%d_%d.png' % (dir2save,i,n),functions.convert_image_np(I_curr.detach()), vmin=0, vmax=1)
                     #plt.imsave('%s/in_s.png' % (dir2save), functions.convert_image_np(in_s), vmin=0,vmax=1)
             images_cur.append(I_curr)

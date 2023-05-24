@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--scale_v', type=float, help='vertical resize factor for random samples', default=1)
     parser.add_argument('--scale_z', type=float, help='depth resize factor for random samples', default=1)
     parser.add_argument('--train_dir', type=str, default=None)
+    parser.add_argument('--save_all_scales', action='store_true', help='save every level', default=0)
     opt = parser.parse_args()
     opt = functions.post_config(opt)
     Gs = []
