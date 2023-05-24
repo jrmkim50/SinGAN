@@ -248,15 +248,19 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             #D_fake_map = output.detach()
             errG = -output.mean()
             # Similarity loss (only apply for sim alpha != 0)
+            if opt.train_until_good:
+                fake_adjusted = (fake + 1) / 2
+                real_adjusted = (SELECTED_REAL + 1) / 2
+                assert fake_adjusted.shape == real_adjusted.shape
+                if len(last_ten_ssims) == 10:
+                    last_ten_ssims.pop(0)
+                last_ten_ssims.append(ssim(fake_adjusted, real_adjusted))
             if opt.sim_alpha != 0 and opt.sim_boundary_type == "start":
                 if len(Gs) >= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     ssim_loss = sim_loss(fake_adjusted, real_adjusted)
-                    if len(last_ten_ssims) == 10:
-                        last_ten_ssims.pop(0)
-                    last_ten_ssims.append(-ssim_loss)
                     errG += opt.sim_alpha * ssim_loss
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
@@ -264,9 +268,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     ssim_loss = sim_loss(fake_adjusted, real_adjusted)
-                    if len(last_ten_ssims) == 10:
-                        last_ten_ssims.pop(0)
-                    last_ten_ssims.append(-ssim_loss)
                     errG += opt.sim_alpha * ssim_loss
             elif opt.sim_alpha != 0:
                 assert False, "Incorrect use of sim alpha."
