@@ -130,6 +130,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     z_opt2plot = []
 
 
+    adversarial_loss = torch.nn.BCEWithLogitsLoss()
     ssim_target = TargetSimLoss(0.8, ssim).cuda()
     sim_loss = None
     assert opt.sim_type in ["vgg", "ssim", "ssim_target"]
@@ -168,6 +169,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         # (1) Update D network: maximize D(x) + D(G(z))
         ###########################
         for j in range(opt.Dsteps):
+            valid = torch.full((1,1), 1.0).to(opt.device)
+            fake_label = torch.full((1,1), 0.0).to(opt.device)
+
             # train with real
             netD.zero_grad()
 
@@ -177,11 +181,13 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 ssim_channel = torch.ones(SELECTED_REAL.shape).to(opt.device)
                 input_d_real = torch.cat([SELECTED_REAL, ssim_channel], axis=1)
 
-            output = netD(input_d_real).to(opt.device)
+            output_real = netD(input_d_real).to(opt.device)
+            D_x = output_real.mean().item()
             #D_real_map = output.detach()
-            errD_real = -output.mean()#-a
-            errD_real.backward(retain_graph=True)
-            D_x = -errD_real.item()
+            if not opt.relativistic:
+                errD_real = -output_real.mean()#-a
+                errD_real.backward(retain_graph=True)
+
 
             # train with fake
             if (j==0) & (epoch == 0):
@@ -225,10 +231,16 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 ssim_channel = torch.full(fake.shape, ssim((fake.detach() + 1) / 2, (SELECTED_REAL + 1) / 2)).to(opt.device)
                 input_d_fake = torch.cat([fake, ssim_channel], axis=1)
 
-            output = netD(input_d_fake.detach())
-            errD_fake = output.mean()
-            errD_fake.backward(retain_graph=True)
-            D_G_z = output.mean().item()
+            output_fake = netD(input_d_fake.detach())
+            D_G_z = output_fake.mean().item()
+            if not opt.relativistic:
+                errD_fake = output_fake.mean()
+                errD_fake.backward(retain_graph=True)
+            else:
+                errD_real = adversarial_loss((output_real.mean() - output_fake.mean()).unsqueeze(0).unsqueeze(1), valid)
+                errD_real.backward(retain_graph=True)
+                errD_fake = adversarial_loss((output_fake.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), fake_label)
+                errD_fake.backward(retain_graph=True)
 
             gradient_penalty = functions.calc_gradient_penalty(netD, input_d_real, input_d_fake, opt.lambda_grad, opt.device)
             gradient_penalty.backward()
@@ -246,7 +258,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             netG.zero_grad()
             output = netD(input_d_fake)
             #D_fake_map = output.detach()
-            errG = -output.mean()
+            if not opt.relativistic:
+                errG = -output.mean()
+            else:
+                errG = adversarial_loss((output_real.mean() - output.mean()).unsqueeze(0).unsqueeze(1), fake_label)
+                errG += adversarial_loss((output.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), valid)
             # Similarity loss (only apply for sim alpha != 0)
             if opt.train_until_good:
                 fake_adjusted = (fake + 1) / 2
