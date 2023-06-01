@@ -11,6 +11,8 @@ from SinGAN.imresize import imresize, imresize3D
 from torchmetrics.functional import structural_similarity_index_measure as ssim
 from SinGAN.perceptual import VGGLoss
 import random
+import nibabel as nib
+import numpy as np
 
 def train(opt,Gs,Zs,reals,NoiseAmp):
     real_, extra_images = functions.read_image3D(opt)
@@ -120,7 +122,23 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     # setup optimizer
     optimizerD = optim.Adam(netD.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
     optimizerG = optim.Adam(netG.parameters(), lr=opt.lr_g, betas=(opt.beta1, 0.999))
-    schedulerD = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD,milestones=[1600],gamma=opt.gamma)
+
+    # 2: Trying LR warmup
+    def lr(epoch):
+        # 0: 0.1^5, 1: 0.1^4, 2: 0.1^3, 3: 0.1^2, 4: 0.1^1, 5: 0.1^0, 
+        # 6: 0.99857^1, ...
+        if epoch <= 20:
+            lr_scale = max(0.1**(20-epoch), 0.1**5)
+        else:
+            # Calculated so that at epoch 1600, we are multiplying lr by 0.1 (opt.gamma)
+            lr_scale = 0.99857**(epoch-20)
+            # lr_scale = 1-((epoch - 5) / 2000)
+        return lr_scale
+        
+    schedulerD = optim.lr_scheduler.LambdaLR(optimizerD, lr_lambda=lr)
+    # schedulerG = optim.lr_scheduler.LambdaLR(optimizerG, lr_lambda=lr)
+    # 2: END
+    # schedulerD = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD,milestones=[1600],gamma=opt.gamma)
     schedulerG = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerG,milestones=[1600],gamma=opt.gamma)
 
     errD2plot = []
@@ -295,7 +313,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 Z_opt = opt.noise_amp*z_opt3D+z_prev3D
                 assert Z_opt.shape[:2] == real_and_extra.shape[:2], f"{Z_opt.shape} versus {real_and_extra.shape}"
                 assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
-                rec_loss = alpha*loss(netG(Z_opt[SELECTED_IDX][None].detach(),z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
+                rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D), real_and_extra)
+                # rec_loss = alpha*loss(netG(Z_opt[SELECTED_IDX][None].detach(),z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
                 rec_loss.backward(retain_graph=True)
                 rec_loss = rec_loss.detach()
             else:
@@ -313,10 +332,18 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             print('scale %d:[%d/%d]' % (len(Gs), epoch, opt.niter))
 
         if epoch % 500 == 0 or epoch == (opt.niter-1):
+            # 3: UPDATED image saving (No more updates past 5/29)
             plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np3D(fake.detach()), vmin=0, vmax=1)
             opt_imgs = netG(Z_opt.detach(), z_prev3D).detach()
             for idx, opt_img in enumerate(opt_imgs):
+                plt.imsave('%s/z_prev_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(z_prev3D[idx][None]), vmin=0, vmax=1)
                 plt.imsave('%s/G(z_opt)_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(opt_img[None]), vmin=0, vmax=1)
+                plt.imsave('%s/real_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(real_and_extra[idx][None]), vmin=0, vmax=1)
+                for name, img in [("z_prev", z_prev3D[idx][None]), ("opt_img", opt_img[None]), ("real", real_and_extra[idx][None])]:
+                    to_save = functions.convert_image_np3D(img, eval=True)
+                    img = nib.Nifti1Image(to_save[:,:,:,0], np.eye(4))
+                    nib.save(img, os.path.join(opt.outf, f"{name}_{idx}.nii.gz"))
+            # 3: end
             #plt.imsave('%s/D_fake.png'   % (opt.outf), functions.convert_image_np(D_fake_map))
             #plt.imsave('%s/D_real.png'   % (opt.outf), functions.convert_image_np(D_real_map))
             #plt.imsave('%s/z_opt.png'    % (opt.outf), functions.convert_image_np(z_opt.detach()), vmin=0, vmax=1)
