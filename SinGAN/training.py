@@ -127,11 +127,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     def lr(epoch):
         # 0: 0.1^5, 1: 0.1^4, 2: 0.1^3, 3: 0.1^2, 4: 0.1^1, 5: 0.1^0, 
         # 6: 0.99857^1, ...
-        if epoch <= 20:
-            lr_scale = max(0.1**(20-epoch), 0.1**5)
+        if epoch <= 5:
+            lr_scale = 0.1**(5-epoch)
         else:
             # Calculated so that at epoch 1600, we are multiplying lr by 0.1 (opt.gamma)
-            lr_scale = 0.99857**(epoch-20)
+            lr_scale = 0.99857**(epoch-5)
             # lr_scale = 1-((epoch - 5) / 2000)
         return lr_scale
         
@@ -139,6 +139,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     # schedulerG = optim.lr_scheduler.LambdaLR(optimizerG, lr_lambda=lr)
     # 2: END
     # schedulerD = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD,milestones=[1600],gamma=opt.gamma)
+    # schedulerD = torch.optim.lr_scheduler.CyclicLR(optimizerD, base_lr=0.01*opt.lr_d, max_lr=opt.lr_d, step_size_up=100, cycle_momentum=False)
     schedulerG = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerG,milestones=[1600],gamma=opt.gamma)
 
     errD2plot = []
