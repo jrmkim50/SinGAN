@@ -25,7 +25,7 @@ def get_arguments():
     parser.add_argument('--num_layer_d',type=int, help='number of layers in discrim',default=0)
     parser.add_argument('--stride',help='stride',default=1)
     parser.add_argument('--padd_size',type=int,help='net pad size',default=0)#math.floor(opt.ker_size/2)
-    parser.add_argument('--discrim_no_spatial',type=str, help='0 to use spatial attention in discriminator',default=1)
+    parser.add_argument('--discrim_no_spatial',type=int, help='0 to use spatial attention in discriminator',default=1)
         
     #pyramid parameters:
     parser.add_argument('--scale_factor',type=float,help='pyramid scale factor',default=0.75)#pow(0.5,1/6))
