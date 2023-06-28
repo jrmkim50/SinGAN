@@ -290,6 +290,17 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 if len(last_ten_ssims) == 10:
                     last_ten_ssims.pop(0)
                 last_ten_ssims.append(ssim(fake_adjusted, real_adjusted))
+            # if opt.linear_sim:
+            #     fake_adjusted = (fake + 1) / 2
+            #     real_adjusted = (SELECTED_REAL + 1) / 2
+            #     assert fake_adjusted.shape == real_adjusted.shape
+            #     ssim_loss = sim_loss(fake_adjusted, real_adjusted)
+            #     if opt.linear_sim == 1: # decreasing linear
+            #         alpha = (opt.stop_scale - len(Gs) + 1) * opt.sim_alpha
+            #     else: # increasing linear
+            #         alpha = (len(Gs) + 1) * opt.sim_alpha
+            #     errG += alpha * ssim_loss
+            # elif [...]
             if opt.sim_alpha != 0 and opt.sim_boundary_type == "start":
                 if len(Gs) >= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2

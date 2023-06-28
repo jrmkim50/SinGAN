@@ -43,6 +43,7 @@ def get_arguments():
     parser.add_argument('--Dsteps',type=int, help='Discriminator inner steps',default=3)
     parser.add_argument('--lambda_grad',type=float, help='gradient penelty weight',default=0.1)
     parser.add_argument('--alpha',type=float, help='reconstruction loss weight',default=10)
+    # parser.add_argument('--linear_sim',type=int, help='0 for no linear, 1 for decreasing linear, 0 for increasing linear',default=0)
     parser.add_argument('--sim_alpha',type=float, help='simularity loss weight',default=10)
     parser.add_argument('--sim_boundary',type=int, help='Apply sim loss from pyramid layers [sim_boundary, num_stages) or [0,sim_boundary]',default=3)
     parser.add_argument('--sim_boundary_type',type=str, help='Is the boundary a start or an end?',default='start')
