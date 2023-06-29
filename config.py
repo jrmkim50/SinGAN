@@ -62,5 +62,8 @@ def get_arguments():
     parser.add_argument('--prelu', action='store_true', help='use prelu', default=0)
     parser.add_argument('--relativistic', action='store_true', help='use relativistic discrim', default=0)
 
+    parser.add_argument('--generate_with_critic', action='store_true', help='generate future layers with critic output', default=0)
+    parser.add_argument('--detach_critic', action='store_true', help='is detach needed critic output', default=0)
+
     
     return parser
