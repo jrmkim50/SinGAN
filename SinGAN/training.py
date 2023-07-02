@@ -166,16 +166,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
     elif opt.sim_type == "ssim_target":
         sim_loss = ssim_target
 
-    last_ten_ssims = []
-    def reached_ssim_limit(epoch):
-        if not opt.train_until_good or len(last_ten_ssims) == 0 or epoch >= 5000:
-            if epoch >= opt.niter:
-                print(len(last_ten_ssims), "reached ssim limit capacity", epoch)
-            return True
-        return torch.mean(torch.tensor(last_ten_ssims)) >= 0.7
-
     epoch = 0
-    while (epoch < int(opt.niter) or not reached_ssim_limit(epoch)):
+    while epoch < int(opt.niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
             z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=total_samps)
             z_opt3D = m_noise3D(z_opt3D.expand(total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
@@ -296,13 +288,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 errG = adversarial_loss((output_real.mean() - output.mean()).unsqueeze(0).unsqueeze(1), fake_label)
                 errG += adversarial_loss((output.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), valid)
             # Similarity loss (only apply for sim alpha != 0)
-            if opt.train_until_good:
-                fake_adjusted = (fake + 1) / 2
-                real_adjusted = (SELECTED_REAL + 1) / 2
-                assert fake_adjusted.shape == real_adjusted.shape
-                if len(last_ten_ssims) == 10:
-                    last_ten_ssims.pop(0)
-                last_ten_ssims.append(ssim(fake_adjusted, real_adjusted))
             # if opt.linear_sim:
             #     fake_adjusted = (fake + 1) / 2
             #     real_adjusted = (SELECTED_REAL + 1) / 2
