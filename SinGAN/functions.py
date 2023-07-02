@@ -31,6 +31,10 @@ def read_image3D(opt):
     if len(x.shape) == 3:
         # Add channel axis
         x = x[:,:,:,None]
+    if opt.split_image:
+        assert len(x.shape) == 4
+        assert x.shape[2] == 128
+        x = np.concatenate((x[:,:,:64], x[:,:,64:]), axis=3)
     opt.nc_im = x.shape[-1]
     opt.nc_z = x.shape[-1]
     x = np2torch3D(x,opt)
@@ -43,6 +47,10 @@ def read_image3D(opt):
         if len(reference.shape) == 3:
             # Add channel axis
             reference = reference[:,:,:,None]
+        if opt.split_image:
+            assert len(reference.shape) == 4
+            assert reference.shape[2] == 128
+            reference = np.concatenate((reference[:,:,:64], reference[:,:,64:]), axis=3)
         reference = np2torch3D(reference,opt)
         extra_images.append(reference)
     return x, extra_images
@@ -80,11 +88,18 @@ def convert_image_np(inp):
     inp = np.clip(inp,0,1)
     return inp
 
-def convert_image_np3D(inp,eval=False):
+def convert_image_np3D(inp,eval=False,opt=None):
+    assert opt
     inp = denorm(inp)
     inp = move_to_cpu(inp[-1,:,:,:,:])
     inp = inp.numpy().transpose((1,2,3,0))
+    # w,h,d,channel
     inp = np.clip(inp,0,1)
+    if opt.split_image:
+        n_channels = inp.shape[-1]
+        assert n_channels % 2 == 0
+        inp = np.concatenate((inp[:,:,:,:n_channels // 2], inp[:,:,:,n_channels // 2:]), axis=2)
+        assert inp.shape[-1] > 0 and len(inp.shape) == 4
     if eval:
         return inp
     return inp[:,inp.shape[1] // 2,:, 0]
@@ -202,6 +217,7 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
     return gradient_penalty
 
 def read_image_dir(dir,opt):
+    assert False, "not used in 3d mode"
     x = img.imread('%s' % dir)
     x = np2torch(x,opt)
     x = x[:,0:3,:,:]
