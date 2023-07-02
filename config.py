@@ -58,9 +58,9 @@ def get_arguments():
     parser.add_argument('--config_tag',type=str, help='extra identifying info',default="")
 
     parser.add_argument('--groupnorm', action='store_true', help='use groupnorm', default=0)
-    parser.add_argument('--train_until_good', action='store_true', help='train util ssim at least 0.7', default=0)
     parser.add_argument('--prelu', action='store_true', help='use prelu', default=0)
     parser.add_argument('--relativistic', action='store_true', help='use relativistic discrim', default=0)
+    parser.add_argument('--train_last_layer_longer', action='store_true', help='train last scale for 2 * original num iters', default=0)
 
     parser.add_argument('--generate_with_critic', action='store_true', help='generate future layers with critic output', default=0)
     parser.add_argument('--detach_critic', action='store_true', help='is detach needed critic output', default=0)

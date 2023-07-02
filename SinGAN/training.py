@@ -167,6 +167,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
         sim_loss = ssim_target
 
     epoch = 0
+
+    if opt.train_last_layer_longer and len(Gs) == opt.stop_scale:
+        print("Training last layer for longer")
+        opt.niter *= 2
+
     while epoch < int(opt.niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
             z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=total_samps)
