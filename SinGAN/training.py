@@ -139,10 +139,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
             # lr_scale = 1-((epoch - 5) / 2000)
         return lr_scale
         
-    schedulerD = optim.lr_scheduler.LambdaLR(optimizerD, lr_lambda=lr)
+    # schedulerD = optim.lr_scheduler.LambdaLR(optimizerD, lr_lambda=lr)
     # schedulerG = optim.lr_scheduler.LambdaLR(optimizerG, lr_lambda=lr)
     # 2: END
-    # schedulerD = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD,milestones=[1600],gamma=opt.gamma)
+    schedulerD = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD,milestones=[1600],gamma=opt.gamma)
     # schedulerD = torch.optim.lr_scheduler.CyclicLR(optimizerD, base_lr=0.01*opt.lr_d, max_lr=opt.lr_d, step_size_up=100, cycle_momentum=False)
     schedulerG = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerG,milestones=[1600],gamma=opt.gamma)
 
