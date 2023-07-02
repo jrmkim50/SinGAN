@@ -52,7 +52,7 @@ def train(opt,Gs,Ds,Zs,reals,NoiseAmp):
 
         #plt.imsave('%s/in.png' %  (opt.out_), functions.convert_image_np(real), vmin=0, vmax=1)
         #plt.imsave('%s/original.png' %  (opt.out_), functions.convert_image_np(real_), vmin=0, vmax=1)
-        plt.imsave('%s/real_scale.png' %  (opt.outf), functions.convert_image_np3D(reals[scale_num]), vmin=0, vmax=1)
+        plt.imsave('%s/real_scale.png' %  (opt.outf), functions.convert_image_np3D(reals[scale_num], opt=opt), vmin=0, vmax=1)
 
         D_curr,G_curr = init_models(opt, scale_num)
         if (nfc_prev==opt.nfc) and (not opt.generate_with_critic or scale_num > 1):
@@ -356,7 +356,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
 
         if epoch % 500 == 0 or epoch == (opt.niter-1):
             # 3: UPDATED image saving (No more updates past 5/29)
-            plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np3D(fake.detach()), vmin=0, vmax=1)
+            plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np3D(fake.detach(), opt=opt), vmin=0, vmax=1)
             if len(Gs) > 0 and opt.generate_with_critic:
                 if opt.detach_critic:
                     prev_discrim = netD(m_critic(z_prev3D.detach())).detach()
@@ -367,11 +367,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
             else:
                 opt_imgs = netG(Z_opt.detach(), z_prev3D).detach()
             for idx, opt_img in enumerate(opt_imgs):
-                plt.imsave('%s/z_prev_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(z_prev3D[idx][None]), vmin=0, vmax=1)
-                plt.imsave('%s/G(z_opt)_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(opt_img[None]), vmin=0, vmax=1)
-                plt.imsave('%s/real_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(real_and_extra[idx][None]), vmin=0, vmax=1)
+                plt.imsave('%s/z_prev_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(z_prev3D[idx][None], opt=opt), vmin=0, vmax=1)
+                plt.imsave('%s/G(z_opt)_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(opt_img[None], opt=opt), vmin=0, vmax=1)
+                plt.imsave('%s/real_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(real_and_extra[idx][None], opt=opt), vmin=0, vmax=1)
                 for name, img in [("z_prev", z_prev3D[idx][None]), ("opt_img", opt_img[None]), ("real", real_and_extra[idx][None])]:
-                    to_save = functions.convert_image_np3D(img, eval=True)
+                    to_save = functions.convert_image_np3D(img, eval=True, opt=opt)
                     img = nib.Nifti1Image(to_save[:,:,:,0], np.eye(4))
                     nib.save(img, os.path.join(opt.outf, f"{name}_{idx}.nii.gz"))
             # 3: end
