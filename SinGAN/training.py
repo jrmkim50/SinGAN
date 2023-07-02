@@ -202,7 +202,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 input_d_real = torch.cat([SELECTED_REAL, ssim_channel], axis=1)
 
             output_real = netD(m_critic(input_d_real)).to(opt.device)
-            assert output_real.shape == input_d_real.shape
+            assert output_real.shape[2:] == input_d_real.shape[2:] and output_real.shape[0] == input_d_real.shape[0]
             D_x = output_real.mean().item()
             #D_real_map = output.detach()
             if not opt.relativistic:
