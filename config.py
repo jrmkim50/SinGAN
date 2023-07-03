@@ -68,5 +68,7 @@ def get_arguments():
     parser.add_argument('--split_image', action='store_true', help='fold image in half', default=0)
     parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0)
 
+    parser.add_argument('--planar_convs', action='store_true', help='use planar convolutions', default=0)
+
     
     return parser
