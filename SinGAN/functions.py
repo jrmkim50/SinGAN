@@ -98,11 +98,18 @@ def convert_image_np3D(inp,eval=False,opt=None):
     if opt.split_image:
         n_channels = inp.shape[-1]
         assert n_channels % 2 == 0
+        # We unfold on axis 2 because we initially split at axis 2
         inp = np.concatenate((inp[:,:,:,:n_channels // 2], inp[:,:,:,n_channels // 2:]), axis=2)
         assert inp.shape[-1] > 0 and len(inp.shape) == 4
     if eval:
         return inp
     return inp[:,inp.shape[1] // 2,:, 0]
+
+def unfold_tensor(inp):
+    n_channels = inp.shape[1]
+    assert n_channels % 2 == 0
+    # if we would fold a tensor of b,c,w,h,d, we would split on axis 4, so we unfold on axis 4
+    return torch.cat((inp[:,:n_channels // 2], inp[:,n_channels // 2:]), dim=4)
 
 def save_image(real_cpu,receptive_feild,ncs,epoch_num,file_name):
     fig,ax = plt.subplots(1)
