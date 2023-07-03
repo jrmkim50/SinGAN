@@ -383,7 +383,7 @@ def create_planar_pad(pad_size, planar_axis):
     elif planar_axis == 2:
         # kernel size is (1,ker_size,ker_size)
         return (int(pad_size), int(pad_size), 0, 0, int(pad_size), int(pad_size))
-    else:
+    elif planar_axis == 3:
         return (0, 0, int(pad_size), int(pad_size), int(pad_size), int(pad_size))
 
 def generate_dir2save(opt):

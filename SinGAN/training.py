@@ -429,10 +429,16 @@ def draw_concat3D(Gs,Ds,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
                 pad_noise = 0
             for G,D,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Ds,Zs,reals3D,reals3D[1:],NoiseAmp):
                 if count == 0:
-                    z3D = functions.generate_noise3D([1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise], device=opt.device)
+                    noise_shape = [1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise]
+                    if opt.planar_convs:
+                        noise_shape[opt.planar_convs] = Z_opt.shape[opt.planar_convs + 1]
+                    z3D = functions.generate_noise3D(noise_shape, device=opt.device)
                     z3D = z3D.expand(1, opt.nc_z, z3D.shape[2], z3D.shape[3], z3D.shape[4])
                 else:
-                    z3D = functions.generate_noise3D([opt.nc_z,Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise], device=opt.device)
+                    noise_shape = [opt.nc_z,Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise]
+                    if opt.planar_convs:
+                        noise_shape[opt.planar_convs] = Z_opt.shape[opt.planar_convs + 1]
+                    z3D = functions.generate_noise3D(noise_shape, device=opt.device)
                 z3D = m_noise3D(z3D)
                 G_z = G_z[:,:,0:real_curr.shape[2],0:real_curr.shape[3],0:real_curr.shape[4]]
                 G_z = m_image3D(G_z)

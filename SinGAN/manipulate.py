@@ -100,6 +100,12 @@ def SinGAN_generate(Gs,Ds,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,sc
         nzx = (Z_opt.shape[2]-pad1*2)*scale_v
         nzy = (Z_opt.shape[3]-pad1*2)*scale_h
         nzz = (Z_opt.shape[4]-pad1*2)*scale_z
+        if opt.planar_convs == 1:
+            nzx = (Z_opt.shape[2])*scale_v
+        elif opt.planar_convs == 2:
+            nzy = (Z_opt.shape[3])*scale_h
+        elif opt.planar_convs == 3:
+            nzz = (Z_opt.shape[4])*scale_z
 
         images_prev = images_cur
         images_cur = []
