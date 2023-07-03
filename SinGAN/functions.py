@@ -433,6 +433,11 @@ def post_config(opt):
     torch.manual_seed(opt.manualSeed)
     if torch.cuda.is_available() and opt.not_cuda:
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
+    opt.model_ker_size = opt.ker_size
+    if opt.planar_convs:
+        opt.model_ker_size = [opt.ker_size, opt.ker_size, opt.ker_size]
+        opt.model_ker_size[opt.planar_convs - 1] = 1
+        opt.model_ker_size = tuple(opt.model_ker_size)
     return opt
 
 def calc_init_scale(opt):

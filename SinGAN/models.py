@@ -44,19 +44,19 @@ class WDiscriminator(nn.Module):
         self.is_cuda = torch.cuda.is_available()
         N = int(opt.nfc)
         in_c = opt.nc_im if not opt.sim_cond_d else opt.nc_im + 1
-        self.head = ConvBlock(in_c,N,opt.ker_size,opt.padd_size,1,opt, generator=False)
+        self.head = ConvBlock(in_c,N,opt.model_ker_size,opt.padd_size,1,opt, generator=False)
         self.body = nn.Sequential()
         num_layer = opt.num_layer_d if opt.num_layer_d else opt.num_layer
         for i in range(num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
             if i == (num_layer - 2) // 2:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_d, generator=False)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.model_ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_d, generator=False)
             elif i == (num_layer - 2 - 1):
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_d, generator=False)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.model_ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_d, generator=False)
             else:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt, generator=False)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.model_ker_size,opt.padd_size,1,opt, generator=False)
             self.body.add_module('block%d'%(i+1),block)
-        self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
+        self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.model_ker_size,stride=1,padding=opt.padd_size)
 
     def forward(self,x):
         x = self.head(x)
@@ -70,19 +70,19 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         super(GeneratorConcatSkip2CleanAdd, self).__init__()
         self.is_cuda = torch.cuda.is_available()
         N = opt.nfc
-        self.head = ConvBlock(opt.nc_im + accepting_discrim_output,N,opt.ker_size,opt.padd_size,1,opt) #GenConvTransBlock(opt.nc_z,N,opt.ker_size,opt.padd_size,opt.stride)
+        self.head = ConvBlock(opt.nc_im + accepting_discrim_output,N,opt.model_ker_size,opt.padd_size,1,opt) #GenConvTransBlock(opt.nc_z,N,opt.ker_size,opt.padd_size,opt.stride)
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
             N = int(opt.nfc/pow(2,(i+1)))
             if i == (opt.num_layer - 2) // 2:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_g)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.model_ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_g)
             elif i == (opt.num_layer - 2 - 1):
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_g)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.model_ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_g)
             else:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.model_ker_size,opt.padd_size,1,opt)
             self.body.add_module('block%d'%(i+1),block)
         self.tail = nn.Sequential(
-            nn.Conv3d(max(N,opt.min_nfc),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
+            nn.Conv3d(max(N,opt.min_nfc),opt.nc_im,kernel_size=opt.model_ker_size,stride =1,padding=opt.padd_size),
             nn.Tanh()
         )
         
