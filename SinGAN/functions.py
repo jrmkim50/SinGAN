@@ -375,6 +375,17 @@ def generate_in2coarsest(reals,scale_v,scale_h,opt):
         in_s = upsampling(real_down, real_down.shape[2], real_down.shape[3])
     return in_s
 
+def create_planar_pad(pad_size, planar_axis):
+    assert planar_axis in [1,2,3]
+    if planar_axis == 1:
+        # kernel size is (1,ker_size,ker_size)
+        return (int(pad_size), int(pad_size), int(pad_size), int(pad_size), 0, 0)
+    elif planar_axis == 2:
+        # kernel size is (1,ker_size,ker_size)
+        return (int(pad_size), int(pad_size), 0, 0, int(pad_size), int(pad_size))
+    else:
+        return (0, 0, int(pad_size), int(pad_size), int(pad_size), int(pad_size))
+
 def generate_dir2save(opt):
     dir2save = None
     if (opt.mode == 'train') | (opt.mode == 'SR_train'):

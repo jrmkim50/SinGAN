@@ -1,5 +1,5 @@
 from __future__ import print_function
-import SinGAN.functions
+import SinGAN.functions as functions
 import SinGAN.models
 import argparse
 import os
@@ -94,8 +94,9 @@ def SinGAN_generate(Gs,Ds,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,sc
     images_cur = []
     for G,D,Z_opt,noise_amp in zip(Gs,Ds,Zs,NoiseAmp):
         pad1 = int((opt.ker_size-1)*opt.num_layer)/2
-        m = nn.ConstantPad3d(int(pad1), 0)
-        m_critic = nn.ConstantPad3d(int(((opt.ker_size - 1) * opt.num_layer_d) / 2), 0)
+        m = nn.ConstantPad3d(int(pad1), 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad1, opt.planar_convs), 0)
+        pad_discrim = int(((opt.ker_size - 1) * opt.num_layer_d) / 2)
+        m_critic = nn.ConstantPad3d(pad_discrim, 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_discrim, opt.planar_convs), 0)
         nzx = (Z_opt.shape[2]-pad1*2)*scale_v
         nzy = (Z_opt.shape[3]-pad1*2)*scale_h
         nzz = (Z_opt.shape[4]-pad1*2)*scale_z

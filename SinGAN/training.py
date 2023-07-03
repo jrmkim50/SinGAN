@@ -113,13 +113,15 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
     opt.receptive_field = opt.ker_size + ((opt.ker_size-1)*(opt.num_layer-1))*opt.stride
     pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2)
     pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2)
-    m_noise3D = nn.ConstantPad3d(int(pad_noise), 0)
-    m_image3D = nn.ConstantPad3d(int(pad_image), 0)
+    m_noise3D = nn.ConstantPad3d(int(pad_noise), 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_noise, opt.planar_convs), 0)
+    m_image3D = nn.ConstantPad3d(int(pad_image), 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_image, opt.planar_convs), 0)
     # Implementing depthless convolutions:
     # 1. m_noise3D = nn.ConstantPad3d((0, 0, int(pad_noise), int(pad_noise), int(pad_noise), int(pad_noise)), 0)
     # 2. m_image3D = nn.ConstantPad3d((0, 0, int(pad_noise), int(pad_noise), int(pad_noise), int(pad_noise)), 0)
     # 3. Change convs to use (ker_size, ker_size, 1) convolutions
-    m_critic = nn.ConstantPad3d(int(((opt.ker_size - 1) * opt.num_layer_d) / 2), 0)
+    pad_discrim = int(((opt.ker_size - 1) * opt.num_layer_d) / 2)
+    m_critic = nn.ConstantPad3d(pad_discrim, 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_discrim, opt.planar_convs), 0)
+    print(m_noise3D, m_image3D, m_critic)
 
     alpha = opt.alpha
 
@@ -417,7 +419,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
 
 def draw_concat3D(Gs,Ds,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     G_z = in_s
-    m_critic = nn.ConstantPad3d(int(((opt.ker_size - 1) * opt.num_layer_d) / 2), 0)
+    pad_discrim = int(((opt.ker_size - 1) * opt.num_layer_d) / 2)
+    m_critic = nn.ConstantPad3d(pad_discrim, 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_discrim, opt.planar_convs), 0)
     if len(Gs) > 0:
         if mode == 'rand':
             count = 0
