@@ -381,7 +381,7 @@ def create_planar_pad(pad_size, planar_axis):
         # kernel size is (1,ker_size,ker_size)
         return (int(pad_size), int(pad_size), int(pad_size), int(pad_size), 0, 0)
     elif planar_axis == 2:
-        # kernel size is (1,ker_size,ker_size)
+        # kernel size is (ker_size,1,ker_size)
         return (int(pad_size), int(pad_size), 0, 0, int(pad_size), int(pad_size))
     elif planar_axis == 3:
         return (0, 0, int(pad_size), int(pad_size), int(pad_size), int(pad_size))
