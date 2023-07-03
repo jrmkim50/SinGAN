@@ -115,6 +115,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
     pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2)
     m_noise3D = nn.ConstantPad3d(int(pad_noise), 0)
     m_image3D = nn.ConstantPad3d(int(pad_image), 0)
+    # Implementing depthless convolutions:
+    # 1. m_noise3D = nn.ConstantPad3d((0, 0, int(pad_noise), int(pad_noise), int(pad_noise), int(pad_noise)), 0)
+    # 2. m_image3D = nn.ConstantPad3d((0, 0, int(pad_noise), int(pad_noise), int(pad_noise), int(pad_noise)), 0)
+    # 3. Change convs to use (ker_size, ker_size, 1) convolutions
     m_critic = nn.ConstantPad3d(int(((opt.ker_size - 1) * opt.num_layer_d) / 2), 0)
 
     alpha = opt.alpha
@@ -201,8 +205,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 ssim_channel = torch.ones(SELECTED_REAL.shape).to(opt.device)
                 input_d_real = torch.cat([SELECTED_REAL, ssim_channel], axis=1)
 
-            output_real = netD(m_critic(input_d_real)).to(opt.device)
-            assert output_real.shape[2:] == input_d_real.shape[2:] and output_real.shape[0] == input_d_real.shape[0]
+            if opt.generate_with_critic:
+                output_real = netD(m_critic(input_d_real)).to(opt.device)
+                assert output_real.shape[2:] == input_d_real.shape[2:] and output_real.shape[0] == input_d_real.shape[0]
+            else:
+                output_real = netD(input_d_real).to(opt.device)
             D_x = output_real.mean().item()
             #D_real_map = output.detach()
             if not opt.relativistic:
@@ -260,7 +267,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 ssim_channel = torch.full(fake.shape, ssim((fake.detach() + 1) / 2, (SELECTED_REAL + 1) / 2)).to(opt.device)
                 input_d_fake = torch.cat([fake, ssim_channel], axis=1)
 
-            output_fake = netD(m_critic(input_d_fake.detach()))
+            if opt.generate_with_critic:
+                output_fake = netD(m_critic(input_d_fake.detach()))
+            else:
+                output_fake = netD(input_d_fake.detach())
             D_G_z = output_fake.mean().item()
             if not opt.relativistic:
                 errD_fake = output_fake.mean()
@@ -271,7 +281,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 errD_fake = adversarial_loss((output_fake.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), fake_label)
                 errD_fake.backward(retain_graph=True)
 
-            gradient_penalty = functions.calc_gradient_penalty(netD, m_critic(input_d_real), m_critic(input_d_fake), opt.lambda_grad, opt.device)
+            if opt.generate_with_critic:
+                gradient_penalty = functions.calc_gradient_penalty(netD, m_critic(input_d_real), m_critic(input_d_fake), opt.lambda_grad, opt.device)
+            else:
+                gradient_penalty = functions.calc_gradient_penalty(netD, input_d_real, input_d_fake, opt.lambda_grad, opt.device)
             gradient_penalty.backward()
 
             errD = errD_real + errD_fake + gradient_penalty
@@ -285,7 +298,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
 
         for j in range(opt.Gsteps):
             netG.zero_grad()
-            output = netD(m_critic(input_d_fake))
+            if opt.generate_with_critic:
+                output = netD(m_critic(input_d_fake))
+            else:
+                output = netD(input_d_fake)
             #D_fake_map = output.detach()
             if not opt.relativistic:
                 errG = -output.mean()
