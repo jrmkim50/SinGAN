@@ -66,6 +66,7 @@ def get_arguments():
     parser.add_argument('--detach_critic', action='store_true', help='is detach needed critic output', default=0)
 
     parser.add_argument('--split_image', action='store_true', help='fold image in half', default=0)
+    parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0)
 
     
     return parser
