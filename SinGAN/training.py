@@ -309,14 +309,20 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
-                    ssim_loss = sim_loss(fake_adjusted, real_adjusted)
+                    if opt.min_ssim:
+                        ssim_loss = min([sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra])
+                    else:
+                        ssim_loss = sim_loss(fake_adjusted, real_adjusted)
                     errG += opt.sim_alpha * ssim_loss
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
-                    ssim_loss = sim_loss(fake_adjusted, real_adjusted)
+                    if opt.min_ssim:
+                        ssim_loss = min([sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra])
+                    else:
+                        ssim_loss = sim_loss(fake_adjusted, real_adjusted)
                     errG += opt.sim_alpha * ssim_loss
             elif opt.sim_alpha != 0:
                 assert False, "Incorrect use of sim alpha."
