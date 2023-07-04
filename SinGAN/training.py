@@ -283,6 +283,18 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 errD_fake = adversarial_loss((output_fake.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), fake_label)
                 errD_fake.backward(retain_graph=True)
 
+            if opt.discrim_recon:
+                assert not opt.generate_with_critic and not opt.generate_with_critic
+                # only use if opt.generate_with_critic is not True
+                Z_opt = opt.noise_amp*z_opt3D+z_prev3D
+                recon = netG(Z_opt.detach()[SELECTED_IDX][None],z_prev3D[SELECTED_IDX][None])
+                assert recon.shape == fake.shape
+                if epoch % 500 == 0 or epoch == (opt.niter-1):
+                    plt.imsave('%s/discrim_recon.png' % (opt.outf),  functions.convert_image_np3D(recon.detach(), opt=opt), vmin=0, vmax=1)
+                output_recon = netD(recon.detach())
+                errD_recon = 0.5*output_recon.mean()
+                errD_recon.backward(retain_graph=True)
+
             if opt.generate_with_critic:
                 gradient_penalty = functions.calc_gradient_penalty(netD, m_critic(input_d_real), m_critic(input_d_fake), opt.lambda_grad, opt.device)
             else:

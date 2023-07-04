@@ -71,5 +71,7 @@ def get_arguments():
     # for now, both g and d will use planar convs if this option is enabled
     parser.add_argument('--planar_convs',type=int, help='use planar convolutions', default=0)
 
+    parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0)
+
     
     return parser
