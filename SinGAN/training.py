@@ -432,6 +432,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
 def draw_concat3D(Gs,Ds,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     G_z = in_s
     pad_discrim = int(((opt.ker_size - 1) * opt.num_layer_d) / 2)
+    assert not opt.planar_convs, "do not use"
     m_critic = nn.ConstantPad3d(pad_discrim, 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_discrim, opt.planar_convs), 0)
     if len(Gs) > 0:
         if mode == 'rand':
