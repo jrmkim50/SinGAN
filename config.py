@@ -66,12 +66,11 @@ def get_arguments():
     parser.add_argument('--detach_critic', action='store_true', help='is detach needed critic output', default=0)
 
     parser.add_argument('--split_image', action='store_true', help='fold image in half', default=0)
-    parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0)
 
     # for now, both g and d will use planar convs if this option is enabled
     parser.add_argument('--planar_convs',type=int, help='use planar convolutions', default=0)
 
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
-
+    # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK
     
     return parser
