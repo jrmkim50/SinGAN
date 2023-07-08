@@ -214,6 +214,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
 
             if not opt.sim_cond_d:
                 input_d_real = SELECTED_REAL
+                if opt.discrim_no_fewgan:
+                    # Only show the original real image to the discriminator
+                    input_d_real = real_and_extra[0][None]
             else:   
                 ssim_channel = torch.ones(SELECTED_REAL.shape).to(opt.device)
                 input_d_real = torch.cat([SELECTED_REAL, ssim_channel], axis=1)
