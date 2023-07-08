@@ -70,6 +70,9 @@ def get_arguments():
 
     parser.add_argument('--discrim_no_fewgan', action='store_true', help='only train discriminator with original real image', default=0)
 
+    parser.add_argument('--warmup_g', action='store_true', help='warmup for generator', default=0)
+    parser.add_argument('--warmup_d', action='store_true', help='warmup for discriminator', default=0)
+
     # for now, both g and d will use planar convs if this option is enabled
     parser.add_argument('--planar_convs',type=int, help='use planar convolutions', default=0)
 
