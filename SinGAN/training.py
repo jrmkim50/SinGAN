@@ -105,7 +105,7 @@ class SimLoss(nn.Module):
 
     def forward(self, fake, real):
         if self.use_harmonic:
-            return 1-ssim(fake, real)
+            return 1-ssim(fake, real, reduction='none')
         return -1 * ssim(fake, real)
 
 def harmonic_mean(nums):
@@ -339,8 +339,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     if opt.harmonic_ssim:
-                        ssim_results = [sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra]
-                        ssim_loss = harmonic_mean(torch.tensor(ssim_results).to(opt.device))
+                        ssim_results = sim_loss(fake_adjusted.expand((3,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)
+                        ssim_loss = harmonic_mean(ssim_results)
                     else:
                         ssim_loss = sim_loss(fake_adjusted, real_adjusted)
                     ssim_loss = opt.sim_alpha * ssim_loss
@@ -351,8 +351,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     if opt.harmonic_ssim:
-                        ssim_results = [sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra]
-                        ssim_loss = harmonic_mean(torch.tensor(ssim_results).to(opt.device))
+                        ssim_results = sim_loss(fake_adjusted.expand((3,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)
+                        ssim_loss = harmonic_mean(ssim_results)
                     else:
                         ssim_loss = sim_loss(fake_adjusted, real_adjusted)
                     ssim_loss = opt.sim_alpha * ssim_loss
