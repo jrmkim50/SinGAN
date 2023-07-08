@@ -99,11 +99,18 @@ class TargetSimLoss(nn.Module):
         return torch.abs(self.ssim(fake, real) - self.target)
     
 class SimLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, use_harmonic):
+        self.use_harmonic = use_harmonic
         super(SimLoss, self).__init__()
 
     def forward(self, fake, real):
+        if self.use_harmonic:
+            return 1-ssim(fake, real)
         return -1 * ssim(fake, real)
+
+def harmonic_mean(nums):
+    assert len(nums) == 3
+    return len(nums) / torch.reciprocal(nums + 1e-16).sum()
 
 def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_opt,NoiseAmp,opt,centers=None):
     real = reals3D[len(Gs)]
@@ -172,7 +179,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
     assert opt.sim_type != "vgg" # vgg not implemented for 3d
     assert opt.sim_boundary_type in ["start", "end"]
     if opt.sim_type == "ssim":
-        sim_loss = SimLoss().cuda()
+        sim_loss = SimLoss(use_harmonic=opt.harmonic_ssim).cuda()
     elif opt.sim_type == "ssim_target":
         sim_loss = ssim_target
 
@@ -331,8 +338,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
-                    if opt.min_ssim:
-                        ssim_loss = min([sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra])
+                    if opt.harmonic_ssim:
+                        ssim_results = [sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra]
+                        ssim_loss = harmonic_mean(torch.tensor(ssim_results).to(opt.device))
                     else:
                         ssim_loss = sim_loss(fake_adjusted, real_adjusted)
                     ssim_loss = opt.sim_alpha * ssim_loss
@@ -342,8 +350,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
-                    if opt.min_ssim:
-                        ssim_loss = min([sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra])
+                    if opt.harmonic_ssim:
+                        ssim_results = [sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra]
+                        ssim_loss = harmonic_mean(torch.tensor(ssim_results).to(opt.device))
                     else:
                         ssim_loss = sim_loss(fake_adjusted, real_adjusted)
                     ssim_loss = opt.sim_alpha * ssim_loss
