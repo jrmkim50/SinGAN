@@ -212,7 +212,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 assert output_real.shape[2:] == input_d_real.shape[2:] and output_real.shape[0] == input_d_real.shape[0]
             else:
                 output_real = netD(input_d_real).to(opt.device)
-            D_x = output_real.mean().item()
             #D_real_map = output.detach()
             if not opt.relativistic:
                 errD_real = -output_real.mean()#-a
@@ -273,7 +272,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 output_fake = netD(m_critic(input_d_fake.detach()))
             else:
                 output_fake = netD(input_d_fake.detach())
-            D_G_z = output_fake.mean().item()
             if not opt.relativistic:
                 errD_fake = output_fake.mean()
                 errD_fake.backward(retain_graph=True)
@@ -284,6 +282,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 errD_fake.backward(retain_graph=True)
 
             if opt.discrim_recon:
+                assert False, "do not use"
                 assert not opt.generate_with_critic and not opt.generate_with_critic
                 # only use if opt.generate_with_critic is not True
                 Z_opt = opt.noise_amp*z_opt3D+z_prev3D
@@ -322,6 +321,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
             else:
                 errG = adversarial_loss((output_real.mean() - output.mean()).unsqueeze(0).unsqueeze(1), fake_label)
                 errG += adversarial_loss((output.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), valid)
+            errG.backward(retain_graph=True)
+            
             # Similarity loss (only apply for sim alpha != 0)
             # if opt.linear_sim:
             #     fake_adjusted = (fake + 1) / 2
@@ -343,7 +344,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                         ssim_loss = min([sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra])
                     else:
                         ssim_loss = sim_loss(fake_adjusted, real_adjusted)
-                    errG += opt.sim_alpha * ssim_loss
+                    # TODO (7/4): based on how the progressive kernel growing goes, maybe re-include the git stash...
+                    ssim_loss = opt.sim_alpha * ssim_loss
+                    ssim_loss.backward(retain_graph=True)
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
@@ -353,10 +356,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                         ssim_loss = min([sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra])
                     else:
                         ssim_loss = sim_loss(fake_adjusted, real_adjusted)
-                    errG += opt.sim_alpha * ssim_loss
+                    ssim_loss = opt.sim_alpha * ssim_loss
+                    ssim_loss.backward(retain_graph=True)
             elif opt.sim_alpha != 0:
                 assert False, "Incorrect use of sim alpha."
-            errG.backward(retain_graph=True)
 
             if alpha!=0:
                 loss = nn.L1Loss()
@@ -383,8 +386,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
             optimizerG.step()
 
         errG2plot.append(errG.detach()+rec_loss)
-        D_real2plot.append(D_x)
-        D_fake2plot.append(D_G_z)
         z_opt2plot.append(rec_loss)
 
         if epoch % 25 == 0 or epoch == (opt.niter-1):
