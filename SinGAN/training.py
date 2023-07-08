@@ -15,6 +15,12 @@ import nibabel as nib
 import numpy as np
 
 def train(opt,Gs,Ds,Zs,reals,NoiseAmp):
+
+    # DISABLING THESE OPTIONS FOR NOW
+    assert not opt.generate_with_critic
+    assert not opt.sim_cond_d
+    assert not opt.planar_convs
+
     real_, extra_images = functions.read_image3D(opt)
     for extra_image in extra_images:
         assert extra_image.shape == real_.shape
@@ -167,8 +173,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
     assert opt.sim_boundary_type in ["start", "end"]
     if opt.sim_type == "ssim":
         sim_loss = SimLoss().cuda()
-    elif opt.sim_type == "vgg":
-        sim_loss = vgg_loss
     elif opt.sim_type == "ssim_target":
         sim_loss = ssim_target
 
@@ -331,7 +335,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                         ssim_loss = min([sim_loss(fake_adjusted, (im[None] + 1) / 2) for im in real_and_extra])
                     else:
                         ssim_loss = sim_loss(fake_adjusted, real_adjusted)
-                    # TODO (7/4): based on how the progressive kernel growing goes, maybe re-include the git stash...
                     ssim_loss = opt.sim_alpha * ssim_loss
                     ssim_loss.backward(retain_graph=True)
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
