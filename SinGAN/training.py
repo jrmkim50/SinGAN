@@ -388,6 +388,18 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                         rec_loss = (alpha / 3)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
                         rec_loss.backward(retain_graph=True)
                         rec_loss = rec_loss.detach()
+                    
+                    # Trying out different bs of 1 rec loss (3: recon_bs_1_type2)
+                    # rec_loss = 0
+                    # for idx in range(3):
+                    #     rec_loss += (alpha / 3)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
+                    # rec_loss.backward(retain_graph=True)
+                    # rec_loss = rec_loss.detach()
+
+                    # Trying out a different bs of 1 rec loss (4: recon_bs_1_type3)
+                    # rec_loss = alpha*loss(netG(Z_opt.detach()[SELECTED_IDX][None],z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
+                    # rec_loss.backward(retain_graph=True)
+                    # rec_loss = rec_loss.detach()
                     # rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D), real_and_extra)
                 # rec_loss = alpha*loss(netG(Z_opt[SELECTED_IDX][None].detach(),z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
                 # rec_loss.backward(retain_graph=True)
