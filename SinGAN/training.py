@@ -355,6 +355,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
+                    # Trying out only using original image for ssim (1)
+                    # real_adjusted = (real_and_extra[0][None] + 1) / 2
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     if opt.harmonic_ssim:
@@ -381,10 +383,15 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                     assert prev_discrim.shape == Z_opt.shape
                     rec_loss = alpha*loss(netG(torch.cat((Z_opt.detach(), prev_discrim), dim=1),z_prev3D), real_and_extra)
                 else:
-                    rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D), real_and_extra)
+                    # Trying out only bs of 1 for rec loss (2)
+                    for idx in range(3):
+                        rec_loss = (alpha / 3)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
+                        rec_loss.backward(retain_graph=True)
+                        rec_loss = rec_loss.detach()
+                    # rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D), real_and_extra)
                 # rec_loss = alpha*loss(netG(Z_opt[SELECTED_IDX][None].detach(),z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
-                rec_loss.backward(retain_graph=True)
-                rec_loss = rec_loss.detach()
+                # rec_loss.backward(retain_graph=True)
+                # rec_loss = rec_loss.detach()
             else:
                 Z_opt = z_opt3D
                 rec_loss = 0
