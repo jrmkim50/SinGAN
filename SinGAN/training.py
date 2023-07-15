@@ -18,7 +18,6 @@ def train(opt,Gs,Ds,Zs,reals,NoiseAmp):
 
     # DISABLING THESE OPTIONS FOR NOW
     assert not opt.generate_with_critic
-    assert not opt.sim_cond_d
     assert not opt.planar_convs
 
     real_, extra_images = functions.read_image3D(opt)
@@ -216,14 +215,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
             # train with real
             netD.zero_grad()
 
-            if not opt.sim_cond_d:
-                input_d_real = SELECTED_REAL
-                if opt.discrim_no_fewgan:
-                    # Only show the original real image to the discriminator
-                    input_d_real = real_and_extra[0][None]
-            else:   
-                ssim_channel = torch.ones(SELECTED_REAL.shape).to(opt.device)
-                input_d_real = torch.cat([SELECTED_REAL, ssim_channel], axis=1)
+            input_d_real = SELECTED_REAL
+            if opt.discrim_no_fewgan:
+                # Only show the original real image to the discriminator
+                input_d_real = real_and_extra[0][None]
 
             if opt.generate_with_critic:
                 output_real = netD(m_critic(input_d_real)).to(opt.device)
@@ -280,11 +275,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
             else:
                 fake = netG(noise3D.detach(),prev)
 
-            if not opt.sim_cond_d:
-                input_d_fake = fake
-            else:
-                ssim_channel = torch.full(fake.shape, ssim((fake.detach() + 1) / 2, (SELECTED_REAL + 1) / 2)).to(opt.device)
-                input_d_fake = torch.cat([fake, ssim_channel], axis=1)
+            input_d_fake = fake
 
             if opt.generate_with_critic:
                 output_fake = netD(m_critic(input_d_fake.detach()))
