@@ -16,8 +16,10 @@ class ConvBlock(nn.Sequential):
     def __init__(self, in_channel, out_channel, ker_size, padd, stride, opt, use_attn=False, generator=True):
         super(ConvBlock,self).__init__()
         if opt.spectral_norm_g and generator:
+            print("Applying spectral norm to generator")
             self.add_module('conv',nn.utils.spectral_norm(nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd)))
         elif opt.spectral_norm_d and not generator:
+            print("Applying spectral norm to discriminator")
             self.add_module('conv',nn.utils.spectral_norm(nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd)))
         else:    
             self.add_module('conv',nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
