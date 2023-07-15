@@ -101,7 +101,7 @@ class SimLoss(nn.Module):
         return -1 * ssim(fake, real)
 
 def harmonic_mean(nums):
-    assert len(nums) == 3
+    assert len(nums) > 0
     return len(nums) / torch.reciprocal(nums + 1e-16).sum()
 
 def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,centers=None):
@@ -302,7 +302,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     if opt.harmonic_ssim:
-                        ssim_results = sim_loss(fake_adjusted.expand((3,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)
+                        ssim_results = sim_loss(fake_adjusted.expand((total_samps,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)
                         ssim_loss = harmonic_mean(ssim_results)
                     else:
                         ssim_loss = sim_loss(fake_adjusted, real_adjusted)
@@ -316,7 +316,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                     real_adjusted = (SELECTED_REAL + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     if opt.harmonic_ssim:
-                        ssim_results = sim_loss(fake_adjusted.expand((3,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)
+                        ssim_results = sim_loss(fake_adjusted.expand((total_samps,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)
                         ssim_loss = harmonic_mean(ssim_results)
                     else:
                         ssim_loss = sim_loss(fake_adjusted, real_adjusted)
@@ -332,15 +332,15 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 assert Z_opt.shape[:2] == real_and_extra.shape[:2], f"{Z_opt.shape} versus {real_and_extra.shape}"
                 assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
                 # Trying out only bs of 1 for rec loss (2)
-                for idx in range(3):
-                    rec_loss = (alpha / 3)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
+                for idx in range(total_samps):
+                    rec_loss = (alpha / total_samps)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
                     rec_loss.backward(retain_graph=True)
                     rec_loss = rec_loss.detach()
                     
                 # Trying out different bs of 1 rec loss (3: recon_bs_1_type2)
                 # rec_loss = 0
-                # for idx in range(3):
-                #     rec_loss += (alpha / 3)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
+                # for idx in range(total_samps):
+                #     rec_loss += (alpha / total_samps)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
                 # rec_loss.backward(retain_graph=True)
                 # rec_loss = rec_loss.detach()
 
