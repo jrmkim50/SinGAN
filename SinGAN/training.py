@@ -190,14 +190,19 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         if (Gs == []) & (opt.mode != 'SR_train'):
             z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=total_samps)
             z_opt3D = m_noise3D(z_opt3D.expand(total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
-            noise_3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
-            noise_3D = m_noise3D(noise_3D.expand(1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
+            noise_3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=(opt.packing_level or 1))
+            noise_3D = m_noise3D(noise_3D.expand((opt.packing_level or 1),opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
         else:
-            noise_3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
+            noise_3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=(opt.packing_level or 1))
             noise_3D = m_noise3D(noise_3D)
 
         SELECTED_IDX = random.choice(range(total_samps))
         SELECTED_REAL = real_and_extra[SELECTED_IDX][None]
+        if opt.packing_level:
+            for _ in range(opt.packing_level - 1):
+                addtnl_index = random.choice(range(total_samps))
+                addtnl_real = real_and_extra[addtnl_index][None]
+                SELECTED_REAL = torch.cat((SELECTED_REAL, addtnl_real), dim=1)
 
         ############################
         # (1) Update D network: maximize D(x) + D(G(z))
@@ -225,43 +230,46 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             total_count += 1
 
 
-            # train with fake
-            if (j==0) & (epoch == 0):
-                if (Gs == []) & (opt.mode != 'SR_train'):
-                    prev = torch.full([1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
-                    in_s = prev
-                    prev = m_image3D(prev)
-                    z_prev3D = torch.full([total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
-                    in_s_z_opt = z_prev3D
-                    z_prev3D = m_noise3D(z_prev3D)
-                    opt.noise_amp = 1
+            fakes = []
+            for fake_idx in range((opt.packing_level or 1)):
+                # train with fake
+                if (j==0) & (epoch == 0):
+                    if (Gs == []) & (opt.mode != 'SR_train'):
+                        prev = torch.full([1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
+                        in_s = prev
+                        prev = m_image3D(prev)
+                        z_prev3D = torch.full([total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
+                        in_s_z_opt = z_prev3D
+                        z_prev3D = m_noise3D(z_prev3D)
+                        opt.noise_amp = 1
+                    else:
+                        prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
+                        prev = m_image3D(prev)
+                        assert in_s_z_opt.shape[:2] == real_and_extra.shape[:2], f"{in_s_z_opt.shape} versus {real_and_extra.shape}"
+                        z_prev3D = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s_z_opt,'rec',m_noise3D,m_image3D,opt)
+                        criterion = nn.MSELoss()
+                        assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
+                        RMSE = torch.sqrt(criterion(real_and_extra, z_prev3D))
+                        opt.noise_amp = opt.noise_amp_init*RMSE
+                        z_prev3D = m_image3D(z_prev3D)
                 else:
                     prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
                     prev = m_image3D(prev)
-                    assert in_s_z_opt.shape[:2] == real_and_extra.shape[:2], f"{in_s_z_opt.shape} versus {real_and_extra.shape}"
-                    z_prev3D = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s_z_opt,'rec',m_noise3D,m_image3D,opt)
-                    criterion = nn.MSELoss()
-                    assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
-                    RMSE = torch.sqrt(criterion(real_and_extra, z_prev3D))
-                    opt.noise_amp = opt.noise_amp_init*RMSE
-                    z_prev3D = m_image3D(z_prev3D)
-            else:
-                prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
-                prev = m_image3D(prev)
 
-            if opt.mode == 'paint_train':
-                assert False, "not implemented"
-                prev = functions.quant2centers(prev,centers)
-                plt.imsave('%s/prev.png' % (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
+                if opt.mode == 'paint_train':
+                    assert False, "not implemented"
+                    prev = functions.quant2centers(prev,centers)
+                    plt.imsave('%s/prev.png' % (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
 
-            if (Gs == []) & (opt.mode != 'SR_train'):
-                noise3D = noise_3D
-            else:
-                noise3D = opt.noise_amp*noise_3D+prev
+                if (Gs == []) & (opt.mode != 'SR_train'):
+                    noise3D = noise_3D[fake_idx][None]
+                else:
+                    noise3D = opt.noise_amp*noise_3D[fake_idx][None]+prev
 
-            fake = netG(noise3D.detach(),prev)
+                fake = netG(noise3D.detach(),prev)
+                fakes.append(fake)
 
-            input_d_fake = fake
+            input_d_fake = torch.cat(fakes, dim=1)
 
             output_fake = netD(input_d_fake.detach())
             if not opt.relativistic:
@@ -315,7 +323,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             if opt.sim_alpha != 0 and opt.sim_boundary_type == "start":
                 if len(Gs) >= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
-                    real_adjusted = (SELECTED_REAL + 1) / 2
+                    real_adjusted = (SELECTED_REAL[:,:opt.nc_im] + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     if opt.harmonic_ssim:
                         ssim_results = sim_loss(fake_adjusted.expand((total_samps,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)
@@ -329,7 +337,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                     fake_adjusted = (fake + 1) / 2
                     # Trying out only using original image for ssim (1)
                     # real_adjusted = (real_and_extra[0][None] + 1) / 2
-                    real_adjusted = (SELECTED_REAL + 1) / 2
+                    real_adjusted = (SELECTED_REAL[:,:opt.nc_im] + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     if opt.harmonic_ssim:
                         ssim_results = sim_loss(fake_adjusted.expand((total_samps,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)

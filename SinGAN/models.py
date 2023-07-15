@@ -50,7 +50,7 @@ class WDiscriminator(nn.Module):
         super(WDiscriminator, self).__init__()
         self.is_cuda = torch.cuda.is_available()
         N = int(opt.nfc)
-        self.head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt, generator=False)
+        self.head = ConvBlock((opt.nc_im*opt.packing_level or opt.nc_im),N,opt.ker_size,opt.padd_size,1,opt, generator=False)
         self.body = nn.Sequential()
         num_layer = opt.num_layer_d if opt.num_layer_d else opt.num_layer
         for i in range(num_layer-2):
