@@ -15,7 +15,12 @@ class Snake(nn.Module):
 class ConvBlock(nn.Sequential):
     def __init__(self, in_channel, out_channel, ker_size, padd, stride, opt, use_attn=False, generator=True):
         super(ConvBlock,self).__init__()
-        self.add_module('conv',nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
+        if opt.spectral_norm_g and generator:
+            self.add_module('conv',nn.utils.spectral_norm(nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd)))
+        elif opt.spectral_norm_d and not generator:
+            self.add_module('conv',nn.utils.spectral_norm(nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd)))
+        else:    
+            self.add_module('conv',nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
         if opt.groupnorm:
             self.add_module('norm',nn.GroupNorm(min(32, out_channel // 2), out_channel))
         else:

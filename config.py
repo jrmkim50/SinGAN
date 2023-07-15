@@ -70,6 +70,9 @@ def get_arguments():
     parser.add_argument('--warmup_g', action='store_true', help='warmup for generator', default=0)
     parser.add_argument('--warmup_d', action='store_true', help='warmup for discriminator', default=0)
 
+    parser.add_argument('--spectral_norm_g', action='store_true', help='spectral norm for generator', default=0)
+    parser.add_argument('--spectral_norm_d', action='store_true', help='spectral norm for discriminator', default=0)
+
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK
     
