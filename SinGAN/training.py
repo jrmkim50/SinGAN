@@ -183,6 +183,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         print("Training layer for longer")
         niter *= 2
 
+    total_count = 0
+    num_correct = 0
+
     while epoch < int(niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
             z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=total_samps)
@@ -216,6 +219,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             if not opt.relativistic:
                 errD_real = -output_real.mean()#-a
                 errD_real.backward(retain_graph=True)
+            
+            if output_real.detach().mean() > 0:
+                num_correct += 1
+            total_count += 1
 
 
             # train with fake
@@ -265,6 +272,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 errD_real.backward(retain_graph=True)
                 errD_fake = adversarial_loss((output_fake.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), fake_label)
                 errD_fake.backward(retain_graph=True)
+
+            if output_fake.detach().mean() < 0:
+                num_correct += 1
+            total_count += 1
 
             gradient_penalty = functions.calc_gradient_penalty(netD, input_d_real, input_d_fake, opt.lambda_grad, opt.device)
             gradient_penalty.backward()
@@ -368,7 +379,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         z_opt2plot.append(rec_loss)
 
         if epoch % 25 == 0 or epoch == (niter-1):
-            print('scale %d:[%d/%d]' % (len(Gs), epoch, niter))
+            print('scale %d:[%d/%d]; d_accuracy: [%.3f]' % (len(Gs), epoch, niter, num_correct/total_count))
 
         if epoch % 500 == 0 or epoch == (niter-1):
             # 3: UPDATED image saving (No more updates past 5/29)
@@ -397,6 +408,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         schedulerG.step()
 
         epoch += 1
+
+    print(f"DISCRIMINATOR ACCURACY ({num_correct}/{total_count}):", num_correct/total_count)
 
     functions.save_networks(netG,netD,z_opt3D,opt)
     return z_opt3D,in_s,in_s_z_opt,netG,netD   
