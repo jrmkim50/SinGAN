@@ -69,7 +69,6 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         super(GeneratorConcatSkip2CleanAdd, self).__init__()
         self.is_cuda = torch.cuda.is_available()
         N = opt.nfc
-        self.planar_convs = opt.planar_convs
         self.head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt) #GenConvTransBlock(opt.nc_z,N,opt.ker_size,opt.padd_size,opt.stride)
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
@@ -90,23 +89,8 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         x = self.head(x)
         x = self.body(x)
         x = self.tail(x)
-        if self.planar_convs:
-            assert False, "do not use"
-            if self.planar_convs == 1:
-                # first image dimension did not change
-                ind = int((y.shape[3]-x.shape[3])/2)
-            else:
-                # first image dimension did change
-                ind = int((y.shape[2]-x.shape[2])/2)
-            if self.planar_convs == 1:
-                y = y[:,:,:,ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
-            elif self.planar_convs == 2:
-                y = y[:,:,ind:(y.shape[2]-ind),:,ind:(y.shape[4]-ind)]
-            elif self.planar_convs == 3:
-                y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),:]
-        else:
-            ind = int((y.shape[2]-x.shape[2])/2)
-            y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
+        ind = int((y.shape[2]-x.shape[2])/2)
+        y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
         summed = x + y
         return summed
         

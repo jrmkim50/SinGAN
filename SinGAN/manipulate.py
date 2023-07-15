@@ -94,16 +94,10 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
     images_cur = []
     for G,Z_opt,noise_amp in zip(Gs,Zs,NoiseAmp):
         pad1 = int((opt.ker_size-1)*opt.num_layer)/2
-        m = nn.ConstantPad3d(int(pad1), 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad1, opt.planar_convs), 0)
+        m = nn.ConstantPad3d(int(pad1), 0)
         nzx = (Z_opt.shape[2]-pad1*2)*scale_v
         nzy = (Z_opt.shape[3]-pad1*2)*scale_h
         nzz = (Z_opt.shape[4]-pad1*2)*scale_z
-        if opt.planar_convs == 1:
-            nzx = (Z_opt.shape[2])*scale_v
-        elif opt.planar_convs == 2:
-            nzy = (Z_opt.shape[3])*scale_h
-        elif opt.planar_convs == 3:
-            nzz = (Z_opt.shape[4])*scale_z
 
         images_prev = images_cur
         images_cur = []
@@ -141,7 +135,7 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
 
             if n == len(reals)-1 or getattr(opt, 'save_all_scales', False):
                 if opt.mode == 'train':
-                    dir2save = f'{opt.out}/RandomSamples/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size},few_gan={opt.few_gan},num_layer_d={opt.num_layer_d}{"_groupnorm" if opt.groupnorm else ""}{",prelu" if opt.prelu else ""}{",rel" if opt.relativistic else ""}{",train_last_longer" if opt.train_last_layer_longer else ""}{",split" if opt.split_image else ""}{",harmonic" if opt.harmonic_ssim else ""}{",discrim_no_fewgan" if opt.discrim_no_fewgan else ""}{",warm_g" if opt.warmup_g else ""}{",warm_d" if opt.warmup_d else ""}{f",planar={opt.planar_convs}" if opt.planar_convs else ""}{opt.config_tag}/gen_start_scale={gen_start_scale}'
+                    dir2save = f'{opt.out}/RandomSamples/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size},few_gan={opt.few_gan},num_layer_d={opt.num_layer_d}{"_groupnorm" if opt.groupnorm else ""}{",prelu" if opt.prelu else ""}{",rel" if opt.relativistic else ""}{",train_last_longer" if opt.train_last_layer_longer else ""}{",split" if opt.split_image else ""}{",harmonic" if opt.harmonic_ssim else ""}{",discrim_no_fewgan" if opt.discrim_no_fewgan else ""}{",warm_g" if opt.warmup_g else ""}{",warm_d" if opt.warmup_d else ""}{opt.config_tag}/gen_start_scale={gen_start_scale}'
                 else:
                     dir2save = functions.generate_dir2save(opt)
                 try:

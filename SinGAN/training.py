@@ -16,9 +16,6 @@ import numpy as np
 
 def train(opt,Gs,Zs,reals,NoiseAmp):
 
-    # DISABLING THESE OPTIONS FOR NOW
-    assert not opt.planar_convs
-
     real_, extra_images = functions.read_image3D(opt)
     for extra_image in extra_images:
         assert extra_image.shape == real_.shape
@@ -121,13 +118,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     opt.receptive_field = opt.ker_size + ((opt.ker_size-1)*(opt.num_layer-1))*opt.stride
     pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2)
     pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2)
-    m_noise3D = nn.ConstantPad3d(int(pad_noise), 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_noise, opt.planar_convs), 0)
-    m_image3D = nn.ConstantPad3d(int(pad_image), 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_image, opt.planar_convs), 0)
-    # Implementing depthless convolutions:
-    # 1. m_noise3D = nn.ConstantPad3d((0, 0, int(pad_noise), int(pad_noise), int(pad_noise), int(pad_noise)), 0)
-    # 2. m_image3D = nn.ConstantPad3d((0, 0, int(pad_noise), int(pad_noise), int(pad_noise), int(pad_noise)), 0)
-    # 3. Change convs to use (ker_size, ker_size, 1) convolutions
-    pad_discrim = int(((opt.ker_size - 1) * opt.num_layer_d) / 2)
+    m_noise3D = nn.ConstantPad3d(int(pad_noise), 0)
+    m_image3D = nn.ConstantPad3d(int(pad_image), 0)
 
     alpha = opt.alpha
 
@@ -406,7 +398,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
 def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     G_z = in_s
-    assert not opt.planar_convs, "do not use"
     if len(Gs) > 0:
         if mode == 'rand':
             count = 0
@@ -416,14 +407,10 @@ def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
             for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
                 if count == 0:
                     noise_shape = [1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise]
-                    if opt.planar_convs:
-                        noise_shape[opt.planar_convs] = Z_opt.shape[opt.planar_convs + 1]
                     z3D = functions.generate_noise3D(noise_shape, device=opt.device)
                     z3D = z3D.expand(1, opt.nc_z, z3D.shape[2], z3D.shape[3], z3D.shape[4])
                 else:
                     noise_shape = [opt.nc_z,Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise]
-                    if opt.planar_convs:
-                        noise_shape[opt.planar_convs] = Z_opt.shape[opt.planar_convs + 1]
                     z3D = functions.generate_noise3D(noise_shape, device=opt.device)
                 z3D = m_noise3D(z3D)
                 G_z = G_z[:,:,0:real_curr.shape[2],0:real_curr.shape[3],0:real_curr.shape[4]]
