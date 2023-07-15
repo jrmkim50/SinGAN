@@ -12,7 +12,6 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     opt = functions.post_config(opt)
     Gs = []
-    Ds = []
     Zs = []
     reals = []
     NoiseAmp = []
@@ -27,5 +26,5 @@ if __name__ == '__main__':
             pass
         real, _ = functions.read_image3D(opt)
         functions.adjust_scales2image(real, opt)
-        train(opt, Gs, Ds, Zs, reals, NoiseAmp)
-        SinGAN_generate(Gs,Ds,Zs,reals,NoiseAmp,opt,eval=True)
+        train(opt, Gs, Zs, reals, NoiseAmp)
+        SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,eval=True)

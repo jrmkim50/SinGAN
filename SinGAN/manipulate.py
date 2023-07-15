@@ -87,16 +87,14 @@ def generate_gif(Gs,Zs,reals,NoiseAmp,opt,alpha=0.1,beta=0.9,start_scale=2,fps=1
     imageio.mimsave('%s/start_scale=%d/alpha=%f_beta=%f.gif' % (dir2save,start_scale,alpha,beta),images_cur,fps=fps)
     del images_cur
 
-def SinGAN_generate(Gs,Ds,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale_z=1,n=0,gen_start_scale=0,num_samples=50,eval=False):
+def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale_z=1,n=0,gen_start_scale=0,num_samples=50,eval=False):
     #if torch.is_tensor(in_s) == False:
     if in_s is None:
         in_s = torch.full(reals[0].shape, 0, device=opt.device)
     images_cur = []
-    for G,D,Z_opt,noise_amp in zip(Gs,Ds,Zs,NoiseAmp):
+    for G,Z_opt,noise_amp in zip(Gs,Zs,NoiseAmp):
         pad1 = int((opt.ker_size-1)*opt.num_layer)/2
         m = nn.ConstantPad3d(int(pad1), 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad1, opt.planar_convs), 0)
-        pad_discrim = int(((opt.ker_size - 1) * opt.num_layer_d) / 2)
-        m_critic = nn.ConstantPad3d(pad_discrim, 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_discrim, opt.planar_convs), 0)
         nzx = (Z_opt.shape[2]-pad1*2)*scale_v
         nzy = (Z_opt.shape[3]-pad1*2)*scale_h
         nzz = (Z_opt.shape[4]-pad1*2)*scale_z
@@ -138,20 +136,12 @@ def SinGAN_generate(Gs,Ds,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,sc
             if n < gen_start_scale:
                 z_curr = Z_opt
 
-            z_in = noise_amp*(z_curr)+I_prev
-            if n > 0 and opt.generate_with_critic:
-                if opt.detach_critic:
-                    critic_output = D(m_critic(I_prev)).detach()
-                else:
-                    critic_output = D(m_critic(I_prev))
-                assert critic_output.shape == z_in.shape
-                I_curr = G(torch.cat((z_in.detach(), critic_output), dim=1),I_prev)
-            else:    
-                I_curr = G(z_in.detach(),I_prev)
+            z_in = noise_amp*(z_curr)+I_prev    
+            I_curr = G(z_in.detach(),I_prev)
 
             if n == len(reals)-1 or getattr(opt, 'save_all_scales', False):
                 if opt.mode == 'train':
-                    dir2save = f'{opt.out}/RandomSamples/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size},few_gan={opt.few_gan},num_layer_d={opt.num_layer_d}{"_groupnorm" if opt.groupnorm else ""}{",prelu" if opt.prelu else ""}{",rel" if opt.relativistic else ""}{",criticGenerator" if opt.generate_with_critic else ""}{"_detach" if opt.detach_critic else ""}{",train_last_longer" if opt.train_last_layer_longer else ""}{",split" if opt.split_image else ""}{",harmonic" if opt.harmonic_ssim else ""}{",discrim_no_fewgan" if opt.discrim_no_fewgan else ""}{",warm_g" if opt.warmup_g else ""}{",warm_d" if opt.warmup_d else ""}{f",planar={opt.planar_convs}" if opt.planar_convs else ""}{opt.config_tag}/gen_start_scale={gen_start_scale}'
+                    dir2save = f'{opt.out}/RandomSamples/{opt.input_name[:-4]}/scale_factor={opt.scale_factor_init:.3f},num_layers={opt.num_layer},sim_alpha={opt.sim_alpha:.3f},sim_boundary={opt.sim_boundary},sim_boundary_type={opt.sim_boundary_type},use_attn_g={opt.use_attention_g},use_attn_end_g={opt.use_attention_end_g},use_attn_d={opt.use_attention_d},use_attn_end_d={opt.use_attention_end_d},nfc={opt.nfc_init},min_size={opt.min_size},few_gan={opt.few_gan},num_layer_d={opt.num_layer_d}{"_groupnorm" if opt.groupnorm else ""}{",prelu" if opt.prelu else ""}{",rel" if opt.relativistic else ""}{",train_last_longer" if opt.train_last_layer_longer else ""}{",split" if opt.split_image else ""}{",harmonic" if opt.harmonic_ssim else ""}{",discrim_no_fewgan" if opt.discrim_no_fewgan else ""}{",warm_g" if opt.warmup_g else ""}{",warm_d" if opt.warmup_d else ""}{f",planar={opt.planar_convs}" if opt.planar_convs else ""}{opt.config_tag}/gen_start_scale={gen_start_scale}'
                 else:
                     dir2save = functions.generate_dir2save(opt)
                 try:

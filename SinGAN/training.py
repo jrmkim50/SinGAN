@@ -14,10 +14,9 @@ import random
 import nibabel as nib
 import numpy as np
 
-def train(opt,Gs,Ds,Zs,reals,NoiseAmp):
+def train(opt,Gs,Zs,reals,NoiseAmp):
 
     # DISABLING THESE OPTIONS FOR NOW
-    assert not opt.generate_with_critic
     assert not opt.planar_convs
 
     real_, extra_images = functions.read_image3D(opt)
@@ -59,12 +58,12 @@ def train(opt,Gs,Ds,Zs,reals,NoiseAmp):
         #plt.imsave('%s/original.png' %  (opt.out_), functions.convert_image_np(real_), vmin=0, vmax=1)
         plt.imsave('%s/real_scale.png' %  (opt.outf), functions.convert_image_np3D(reals[scale_num], opt=opt), vmin=0, vmax=1)
 
-        D_curr,G_curr = init_models(opt, scale_num)
-        if (nfc_prev==opt.nfc) and (not opt.generate_with_critic or scale_num > 1):
+        D_curr,G_curr = init_models(opt)
+        if nfc_prev==opt.nfc:
             G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
 
-        z_curr,in_s,in_s_z_opt,G_curr,D_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_opt,NoiseAmp,opt)
+        z_curr,in_s,in_s_z_opt,G_curr,D_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt)
 
         G_curr = functions.reset_grads(G_curr,False)
         G_curr.eval()
@@ -72,14 +71,11 @@ def train(opt,Gs,Ds,Zs,reals,NoiseAmp):
         D_curr.eval()
 
         Gs.append(G_curr)
-        Ds.append(D_curr)
         Zs.append(z_curr)
         NoiseAmp.append(opt.noise_amp)
 
         torch.save(Zs, '%s/Zs.pth' % (opt.out_))
         torch.save(Gs, '%s/Gs.pth' % (opt.out_))
-        if opt.generate_with_critic:
-            torch.save(Ds, '%s/Ds.pth' % (opt.out_))
         torch.save(reals, '%s/reals.pth' % (opt.out_))
         torch.save(NoiseAmp, '%s/NoiseAmp.pth' % (opt.out_))
 
@@ -111,7 +107,7 @@ def harmonic_mean(nums):
     assert len(nums) == 3
     return len(nums) / torch.reciprocal(nums + 1e-16).sum()
 
-def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_opt,NoiseAmp,opt,centers=None):
+def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,centers=None):
     real = reals3D[len(Gs)]
     to_cat = [real,]
     to_cat += [pyramid[len(Gs)] for pyramid in extra_pyramids]
@@ -132,8 +128,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
     # 2. m_image3D = nn.ConstantPad3d((0, 0, int(pad_noise), int(pad_noise), int(pad_noise), int(pad_noise)), 0)
     # 3. Change convs to use (ker_size, ker_size, 1) convolutions
     pad_discrim = int(((opt.ker_size - 1) * opt.num_layer_d) / 2)
-    m_critic = nn.ConstantPad3d(pad_discrim, 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_discrim, opt.planar_convs), 0)
-    print(m_noise3D, m_image3D, m_critic)
 
     alpha = opt.alpha
 
@@ -220,11 +214,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 # Only show the original real image to the discriminator
                 input_d_real = real_and_extra[0][None]
 
-            if opt.generate_with_critic:
-                output_real = netD(m_critic(input_d_real)).to(opt.device)
-                assert output_real.shape[2:] == input_d_real.shape[2:] and output_real.shape[0] == input_d_real.shape[0]
-            else:
-                output_real = netD(input_d_real).to(opt.device)
+            output_real = netD(input_d_real).to(opt.device)
             #D_real_map = output.detach()
             if not opt.relativistic:
                 errD_real = -output_real.mean()#-a
@@ -242,17 +232,17 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                     z_prev3D = m_noise3D(z_prev3D)
                     opt.noise_amp = 1
                 else:
-                    prev = draw_concat3D(Gs,Ds,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
+                    prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
                     prev = m_image3D(prev)
                     assert in_s_z_opt.shape[:2] == real_and_extra.shape[:2], f"{in_s_z_opt.shape} versus {real_and_extra.shape}"
-                    z_prev3D = draw_concat3D(Gs,Ds,Zs,reals3D,NoiseAmp,in_s_z_opt,'rec',m_noise3D,m_image3D,opt)
+                    z_prev3D = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s_z_opt,'rec',m_noise3D,m_image3D,opt)
                     criterion = nn.MSELoss()
                     assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
                     RMSE = torch.sqrt(criterion(real_and_extra, z_prev3D))
                     opt.noise_amp = opt.noise_amp_init*RMSE
                     z_prev3D = m_image3D(z_prev3D)
             else:
-                prev = draw_concat3D(Gs,Ds,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
+                prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
                 prev = m_image3D(prev)
 
             if opt.mode == 'paint_train':
@@ -265,22 +255,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
             else:
                 noise3D = opt.noise_amp*noise_3D+prev
 
-            if len(Gs) > 0 and opt.generate_with_critic:
-                if opt.detach_critic:
-                    prev_discrim = netD(m_critic(prev.detach())).detach()
-                else:
-                    prev_discrim = netD(m_critic(prev.detach()))
-                assert prev_discrim.shape == noise3D.shape
-                fake = netG(torch.cat((noise3D.detach(), prev_discrim), dim=1),prev)
-            else:
-                fake = netG(noise3D.detach(),prev)
+            fake = netG(noise3D.detach(),prev)
 
             input_d_fake = fake
 
-            if opt.generate_with_critic:
-                output_fake = netD(m_critic(input_d_fake.detach()))
-            else:
-                output_fake = netD(input_d_fake.detach())
+            output_fake = netD(input_d_fake.detach())
             if not opt.relativistic:
                 errD_fake = output_fake.mean()
                 errD_fake.backward(retain_graph=True)
@@ -290,10 +269,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 errD_fake = adversarial_loss((output_fake.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), fake_label)
                 errD_fake.backward(retain_graph=True)
 
-            if opt.generate_with_critic:
-                gradient_penalty = functions.calc_gradient_penalty(netD, m_critic(input_d_real), m_critic(input_d_fake), opt.lambda_grad, opt.device)
-            else:
-                gradient_penalty = functions.calc_gradient_penalty(netD, input_d_real, input_d_fake, opt.lambda_grad, opt.device)
+            gradient_penalty = functions.calc_gradient_penalty(netD, input_d_real, input_d_fake, opt.lambda_grad, opt.device)
             gradient_penalty.backward()
 
             errD = errD_real + errD_fake + gradient_penalty
@@ -307,10 +283,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
 
         for j in range(opt.Gsteps):
             netG.zero_grad()
-            if opt.generate_with_critic:
-                output = netD(m_critic(input_d_fake))
-            else:
-                output = netD(input_d_fake)
+            output = netD(input_d_fake)
             #D_fake_map = output.detach()
             if not opt.relativistic:
                 errG = -output.mean()
@@ -366,32 +339,25 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
                 Z_opt = opt.noise_amp*z_opt3D+z_prev3D
                 assert Z_opt.shape[:2] == real_and_extra.shape[:2], f"{Z_opt.shape} versus {real_and_extra.shape}"
                 assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
-                if len(Gs) > 0 and opt.generate_with_critic:
-                    if opt.detach_critic:
-                        prev_discrim = netD(m_critic(z_prev3D.detach())).detach()
-                    else:
-                        prev_discrim = netD(m_critic(z_prev3D.detach()))
-                    assert prev_discrim.shape == Z_opt.shape
-                    rec_loss = alpha*loss(netG(torch.cat((Z_opt.detach(), prev_discrim), dim=1),z_prev3D), real_and_extra)
-                else:
-                    # Trying out only bs of 1 for rec loss (2)
-                    for idx in range(3):
-                        rec_loss = (alpha / 3)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
-                        rec_loss.backward(retain_graph=True)
-                        rec_loss = rec_loss.detach()
+                # Trying out only bs of 1 for rec loss (2)
+                for idx in range(3):
+                    rec_loss = (alpha / 3)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
+                    rec_loss.backward(retain_graph=True)
+                    rec_loss = rec_loss.detach()
                     
-                    # Trying out different bs of 1 rec loss (3: recon_bs_1_type2)
-                    # rec_loss = 0
-                    # for idx in range(3):
-                    #     rec_loss += (alpha / 3)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
-                    # rec_loss.backward(retain_graph=True)
-                    # rec_loss = rec_loss.detach()
+                # Trying out different bs of 1 rec loss (3: recon_bs_1_type2)
+                # rec_loss = 0
+                # for idx in range(3):
+                #     rec_loss += (alpha / 3)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
+                # rec_loss.backward(retain_graph=True)
+                # rec_loss = rec_loss.detach()
 
-                    # Trying out a different bs of 1 rec loss (4: recon_bs_1_type3)
-                    # rec_loss = alpha*loss(netG(Z_opt.detach()[SELECTED_IDX][None],z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
-                    # rec_loss.backward(retain_graph=True)
-                    # rec_loss = rec_loss.detach()
-                    # rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D), real_and_extra)
+                # Trying out a different bs of 1 rec loss (4: recon_bs_1_type3)
+                # rec_loss = alpha*loss(netG(Z_opt.detach()[SELECTED_IDX][None],z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
+                # rec_loss.backward(retain_graph=True)
+                # rec_loss = rec_loss.detach()
+                # rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D), real_and_extra)
+                
                 # rec_loss = alpha*loss(netG(Z_opt[SELECTED_IDX][None].detach(),z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
                 # rec_loss.backward(retain_graph=True)
                 # rec_loss = rec_loss.detach()
@@ -410,15 +376,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
         if epoch % 500 == 0 or epoch == (opt.niter-1):
             # 3: UPDATED image saving (No more updates past 5/29)
             plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np3D(fake.detach(), opt=opt), vmin=0, vmax=1)
-            if len(Gs) > 0 and opt.generate_with_critic:
-                if opt.detach_critic:
-                    prev_discrim = netD(m_critic(z_prev3D.detach())).detach()
-                else:
-                    prev_discrim = netD(m_critic(z_prev3D.detach()))
-                assert prev_discrim.shape == z_prev3D.shape
-                opt_imgs = netG(torch.cat((Z_opt.detach(), prev_discrim), dim=1), z_prev3D).detach()
-            else:
-                opt_imgs = netG(Z_opt.detach(), z_prev3D).detach()
+            opt_imgs = netG(Z_opt.detach(), z_prev3D).detach()
             for idx, opt_img in enumerate(opt_imgs):
                 plt.imsave('%s/z_prev_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(z_prev3D[idx][None], opt=opt), vmin=0, vmax=1)
                 plt.imsave('%s/G(z_opt)_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(opt_img[None], opt=opt), vmin=0, vmax=1)
@@ -446,18 +404,16 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Ds,Zs,in_s,in_s_z_o
     functions.save_networks(netG,netD,z_opt3D,opt)
     return z_opt3D,in_s,in_s_z_opt,netG,netD   
 
-def draw_concat3D(Gs,Ds,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
+def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     G_z = in_s
-    pad_discrim = int(((opt.ker_size - 1) * opt.num_layer_d) / 2)
     assert not opt.planar_convs, "do not use"
-    m_critic = nn.ConstantPad3d(pad_discrim, 0) if not opt.planar_convs else nn.ConstantPad3d(functions.create_planar_pad(pad_discrim, opt.planar_convs), 0)
     if len(Gs) > 0:
         if mode == 'rand':
             count = 0
             pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2)
             if opt.mode == 'animation_train':
                 pad_noise = 0
-            for G,D,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Ds,Zs,reals3D,reals3D[1:],NoiseAmp):
+            for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
                 if count == 0:
                     noise_shape = [1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise]
                     if opt.planar_convs:
@@ -473,33 +429,17 @@ def draw_concat3D(Gs,Ds,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
                 G_z = G_z[:,:,0:real_curr.shape[2],0:real_curr.shape[3],0:real_curr.shape[4]]
                 G_z = m_image3D(G_z)
                 z_in = noise_amp*z3D+G_z
-                if count > 0 and opt.generate_with_critic:
-                    if opt.detach_critic:
-                        prev_discrim = D(m_critic(G_z.detach())).detach()
-                    else:
-                        prev_discrim = D(m_critic(G_z.detach()))
-                    assert prev_discrim.shape == z_in.shape
-                    G_z = G(torch.cat((z_in.detach(), prev_discrim), dim=1),G_z)
-                else:
-                    G_z = G(z_in.detach(),G_z)
+                G_z = G(z_in.detach(),G_z)
                 G_z = imresize3D(G_z,1/opt.scale_factor,opt)
                 G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3],0:real_next.shape[4]]
                 count += 1
         if mode == 'rec':
             count = 0
-            for G,D,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Ds,Zs,reals3D,reals3D[1:],NoiseAmp):
+            for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
                 G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3], 0:real_curr.shape[4]]
                 G_z = m_image3D(G_z)
                 z_in = noise_amp*Z_opt+G_z
-                if count > 0 and opt.generate_with_critic:
-                    if opt.detach_critic:
-                        prev_discrim = D(m_critic(G_z.detach())).detach()
-                    else:
-                        prev_discrim = D(m_critic(G_z.detach()))
-                    assert prev_discrim.shape == z_in.shape
-                    G_z = G(torch.cat((z_in.detach(), prev_discrim), dim=1),G_z)
-                else:
-                    G_z = G(z_in.detach(),G_z)
+                G_z = G(z_in.detach(),G_z)
                 G_z = imresize3D(G_z,1/opt.scale_factor,opt)
                 G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3],0:real_next.shape[4]]
                 #if count != (len(Gs)-1):
@@ -557,13 +497,10 @@ def train_paint(opt,Gs,Zs,reals,NoiseAmp,centers,paint_inject_scale):
     return
 
 
-def init_models(opt, scale_num):
+def init_models(opt):
 
     #generator initialization:
-    if opt.generate_with_critic:
-        netG = models.GeneratorConcatSkip2CleanAdd(opt, accepting_discrim_output=(scale_num > 0)).to(opt.device)
-    else:
-        netG = models.GeneratorConcatSkip2CleanAdd(opt).to(opt.device)
+    netG = models.GeneratorConcatSkip2CleanAdd(opt).to(opt.device)
     netG.apply(models.weights_init)
     if opt.netG != '':
         netG.load_state_dict(torch.load(opt.netG))
