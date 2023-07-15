@@ -60,6 +60,7 @@ def get_arguments():
     parser.add_argument('--prelu', action='store_true', help='use prelu', default=0)
     parser.add_argument('--relativistic', action='store_true', help='use relativistic discrim', default=0)
     parser.add_argument('--train_last_layer_longer', action='store_true', help='train last scale for 2 * original num iters', default=0)
+    parser.add_argument('--train_first_layers_longer', type=int, help='train first n scales for 2 * original num iters', default=0)
 
     parser.add_argument('--split_image', action='store_true', help='fold image in half', default=0)
     parser.add_argument('--harmonic_ssim', action='store_true', help='use harmonic mean ssim value', default=0)

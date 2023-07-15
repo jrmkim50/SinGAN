@@ -174,11 +174,16 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
     epoch = 0
 
+    niter = opt.niter
+
     if opt.train_last_layer_longer and len(Gs) == opt.stop_scale:
         print("Training last layer for longer")
-        opt.niter *= 2
+        niter *= 2
+    elif opt.train_first_layers_longer and len(Gs) < opt.train_first_layers_longer:
+        print("Training layer for longer")
+        niter *= 2
 
-    while epoch < int(opt.niter):
+    while epoch < int(niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
             z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=total_samps)
             z_opt3D = m_noise3D(z_opt3D.expand(total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
@@ -362,10 +367,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         errG2plot.append(errG.detach()+rec_loss)
         z_opt2plot.append(rec_loss)
 
-        if epoch % 25 == 0 or epoch == (opt.niter-1):
-            print('scale %d:[%d/%d]' % (len(Gs), epoch, opt.niter))
+        if epoch % 25 == 0 or epoch == (niter-1):
+            print('scale %d:[%d/%d]' % (len(Gs), epoch, niter))
 
-        if epoch % 500 == 0 or epoch == (opt.niter-1):
+        if epoch % 500 == 0 or epoch == (niter-1):
             # 3: UPDATED image saving (No more updates past 5/29)
             plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np3D(fake.detach(), opt=opt), vmin=0, vmax=1)
             opt_imgs = netG(Z_opt.detach(), z_prev3D).detach()
