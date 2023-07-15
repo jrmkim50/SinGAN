@@ -161,8 +161,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     z_opt2plot = []
 
 
-    adversarial_loss = torch.nn.BCEWithLogitsLoss()
-    ssim_target = TargetSimLoss(0.8, ssim).cuda()
+    adversarial_loss = torch.nn.BCEWithLogitsLoss() if opt.relativistic else None
+    ssim_target = TargetSimLoss(0.8, ssim).cuda() if opt.sim_type == "ssim_target" else None
     sim_loss = None
     assert opt.sim_type in ["vgg", "ssim", "ssim_target"]
     assert opt.sim_type != "vgg" # vgg not implemented for 3d
