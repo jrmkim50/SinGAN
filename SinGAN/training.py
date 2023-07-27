@@ -1,5 +1,6 @@
 import SinGAN.functions as functions
 import SinGAN.models as models
+import SinGAN.models_2d as models_2d
 import os
 import torch
 import torch.nn as nn
@@ -59,8 +60,17 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
         if nfc_prev==opt.nfc:
             G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
+        
+        D_2d_curr = None
+        if opt.with_2d_discrim:
+            D_2d_curr = init_models_2d(opt)
+            if nfc_prev==opt.nfc:
+                D_2d_curr.load_state_dict(torch.load('%s/%d/netD_2d.pth' % (opt.out_,scale_num-1)))
 
-        z_curr,in_s,in_s_z_opt,G_curr,D_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt)
+        z_curr,in_s,in_s_z_opt,G_curr,D_curr,D_2d_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,D_2d_curr)
+
+        if opt.with_2d_discrim:
+            torch.save(D_2d_curr.state_dict(), '%s/netD_2d.pth' % (opt.outf))
 
         G_curr = functions.reset_grads(G_curr,False)
         G_curr.eval()
@@ -104,7 +114,7 @@ def harmonic_mean(nums):
     assert len(nums) > 0
     return len(nums) / torch.reciprocal(nums + 1e-16).sum()
 
-def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,centers=None):
+def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,D_2d,centers=None):
     real = reals3D[len(Gs)]
     to_cat = [real,]
     to_cat += [pyramid[len(Gs)] for pyramid in extra_pyramids]
@@ -130,6 +140,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     # setup optimizer
     optimizerD = optim.Adam(netD.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
     optimizerG = optim.Adam(netG.parameters(), lr=opt.lr_g, betas=(opt.beta1, 0.999))
+
+    if opt.with_2d_discrim:
+        optimizerD_2d = optim.Adam(D_2d.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
+        schedulerD_2d = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD_2d,milestones=[1600],gamma=opt.gamma)
 
     # 2: Trying LR warmup
     def lr(epoch):
@@ -209,6 +223,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             # train with real
             netD.zero_grad()
 
+            if opt.with_2d_discrim:
+                D_2d.zero_grad()
+
             input_d_real = SELECTED_REAL
             if opt.discrim_no_fewgan:
                 # Only show the original real image to the discriminator
@@ -219,6 +236,12 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             if not opt.relativistic:
                 errD_real = -output_real.mean()#-a
                 errD_real.backward(retain_graph=True)
+
+            if opt.with_2d_discrim:
+                input_d_real_2d = input_d_real[:,:,:,input_d_real.shape[3] // 2]
+                output_real_2d = D_2d(input_d_real_2d).to(opt.device)
+                errD_real_2d = -output_real_2d.mean()#-a
+                errD_real_2d.backward(retain_graph=True)
             
             if output_real.detach().mean() > 0:
                 num_correct += 1
@@ -273,6 +296,15 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 errD_fake = adversarial_loss((output_fake.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), fake_label)
                 errD_fake.backward(retain_graph=True)
 
+            if opt.with_2d_discrim:
+                input_d_fake_2d = input_d_fake[:,:,:,input_d_fake.shape[3] // 2]
+                output_fake_2d = D_2d(input_d_fake_2d).to(opt.device)
+                errD_fake_2d = output_fake_2d.mean()#-a
+                errD_fake_2d.backward(retain_graph=True)
+                gradient_penalty_2d = functions.calc_gradient_penalty(D_2d, input_d_real_2d, input_d_fake_2d, opt.lambda_grad, opt.device)
+                gradient_penalty_2d.backward()
+                optimizerD_2d.step()
+
             if output_fake.detach().mean() < 0:
                 num_correct += 1
             total_count += 1
@@ -299,6 +331,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 errG = adversarial_loss((output_real.mean() - output.mean()).unsqueeze(0).unsqueeze(1), fake_label)
                 errG += adversarial_loss((output.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), valid)
             errG.backward(retain_graph=True)
+
+            if opt.with_2d_discrim:
+                output_2d = D_2d(input_d_fake_2d)
+                errG_2d = opt.with_2d_discrim * -output_2d.mean()
+                errG_2d.backward(retain_graph=True)
             
             # Similarity loss (only apply for sim alpha != 0)
             # if opt.linear_sim:
@@ -407,12 +444,15 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         schedulerD.step()
         schedulerG.step()
 
+        if opt.with_2d_discrim:
+            schedulerD_2d.step()
+
         epoch += 1
 
     print(f"DISCRIMINATOR ACCURACY ({num_correct}/{total_count}):", num_correct/total_count)
 
     functions.save_networks(netG,netD,z_opt3D,opt)
-    return z_opt3D,in_s,in_s_z_opt,netG,netD   
+    return z_opt3D,in_s,in_s_z_opt,netG,netD,D_2d   
 
 def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     G_z = in_s
@@ -519,3 +559,11 @@ def init_models(opt):
     print(netD)
 
     return netD, netG
+
+def init_models_2d(opt):
+    #discriminator initialization:
+    netD = models_2d.WDiscriminator(opt).to(opt.device)
+    netD.apply(models_2d.weights_init)
+    print(netD)
+
+    return netD
