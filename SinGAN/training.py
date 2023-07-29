@@ -110,6 +110,25 @@ class SimLoss(nn.Module):
             return 1-ssim(fake, real, reduction='none')
         return -1 * ssim(fake, real)
 
+def make_slice(im):
+    # im: b,c,w,h,d
+    im_slice_1 = im[:,:,:,im.shape[-2] // 2]
+    im_slice_2 = im[:,:,:,im.shape[-2] // 2]#-1]
+    im_slice_3 = im[:,:,:,im.shape[-2] // 2]#+1]
+    im_slice = torch.cat([im_slice_1,im_slice_2,im_slice_3],1).float()
+    return im_slice
+
+class VGGLossWraper(nn.Module):
+    def __init__(self):
+        super(VGGLossWraper, self).__init__()
+        self.loss = VGGLoss().cuda()
+
+    def forward(self, fake, real):
+        # fake and real are in 0-1 range when forward() called
+        fake_slice = make_slice(fake)
+        real_slice = make_slice(real)
+        return self.loss(fake_slice, real_slice)
+
 def harmonic_mean(nums):
     assert len(nums) > 0
     return len(nums) / torch.reciprocal(nums + 1e-16).sum()
@@ -179,12 +198,13 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     ssim_target = TargetSimLoss(0.8, ssim).cuda() if opt.sim_type == "ssim_target" else None
     sim_loss = None
     assert opt.sim_type in ["vgg", "ssim", "ssim_target"]
-    assert opt.sim_type != "vgg" # vgg not implemented for 3d
     assert opt.sim_boundary_type in ["start", "end"]
     if opt.sim_type == "ssim":
         sim_loss = SimLoss(use_harmonic=opt.harmonic_ssim).cuda()
     elif opt.sim_type == "ssim_target":
         sim_loss = ssim_target
+    elif opt.sim_type == "vgg":
+        sim_loss = VGGLossWraper()
 
     epoch = 0
 
