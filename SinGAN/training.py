@@ -112,9 +112,9 @@ class SimLoss(nn.Module):
 
 def make_slice(im):
     # im: b,c,w,h,d
-    im_slice_1 = im[:,:,:,im.shape[-2] // 2]
+    im_slice_1 = im[:,:,:,im.shape[-2] // 2-1]
     im_slice_2 = im[:,:,:,im.shape[-2] // 2]#-1]
-    im_slice_3 = im[:,:,:,im.shape[-2] // 2]#+1]
+    im_slice_3 = im[:,:,:,im.shape[-2] // 2+1]#+1]
     im_slice = torch.cat([im_slice_1,im_slice_2,im_slice_3],1).float()
     return im_slice
 
