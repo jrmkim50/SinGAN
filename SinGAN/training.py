@@ -373,6 +373,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 if len(Gs) >= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
                     real_adjusted = (SELECTED_REAL + 1) / 2
+                    if opt.sim_loss_one_image:
+                        real_adjusted = (real_and_extra[0][None] + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     if opt.harmonic_ssim:
                         ssim_results = sim_loss(fake_adjusted.expand((total_samps,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)
@@ -384,9 +386,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             elif opt.sim_alpha != 0 and opt.sim_boundary_type == "end":
                 if len(Gs) <= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
-                    # Trying out only using original image for ssim (1)
-                    # real_adjusted = (real_and_extra[0][None] + 1) / 2
                     real_adjusted = (SELECTED_REAL + 1) / 2
+                    if opt.sim_loss_one_image:
+                        real_adjusted = (real_and_extra[0][None] + 1) / 2
                     assert fake_adjusted.shape == real_adjusted.shape
                     if opt.harmonic_ssim:
                         ssim_results = sim_loss(fake_adjusted.expand((total_samps,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)

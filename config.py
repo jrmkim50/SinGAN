@@ -75,6 +75,8 @@ def get_arguments():
 
     parser.add_argument('--with_2d_discrim', type=int, help='train with a 2d discriminator too', default=0)
 
+    parser.add_argument('--sim_loss_one_image', action='store_true', help='only use one image for ssim loss', default=0)
+
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK
     
