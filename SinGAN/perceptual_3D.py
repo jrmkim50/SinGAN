@@ -45,8 +45,8 @@ class MedicalNetLoss(nn.Module):
 
     def forward(self, input, target):
         if self.normalize:
-            input = self.normalize(input)
-            target = self.normalize(target)
+            input = normalize_intensity(input)
+            target = normalize_intensity(target)
         input_feats = self.model(input, layer_stop = self.layer)
         target_feats = self.model(target, layer_stop = self.layer)
         return F.mse_loss(input_feats, target_feats, reduction=self.reduction)
