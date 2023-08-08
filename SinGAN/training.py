@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize, imresize3D
 from torchmetrics.functional import structural_similarity_index_measure as ssim
 from SinGAN.perceptual import VGGLoss
+from SinGAN.perceptual_3D import MedicalNetLoss
 import random
 import nibabel as nib
 import numpy as np
@@ -197,7 +198,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     adversarial_loss = torch.nn.BCEWithLogitsLoss() if opt.relativistic else None
     ssim_target = TargetSimLoss(0.8, ssim).cuda() if opt.sim_type == "ssim_target" else None
     sim_loss = None
-    assert opt.sim_type in ["vgg", "ssim", "ssim_target"]
+    assert opt.sim_type in ["vgg", "ssim", "ssim_target", "medical_net"]
     assert opt.sim_boundary_type in ["start", "end"]
     if opt.sim_type == "ssim":
         sim_loss = SimLoss(use_harmonic=opt.harmonic_ssim).cuda()
@@ -205,6 +206,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         sim_loss = ssim_target
     elif opt.sim_type == "vgg":
         sim_loss = VGGLossWraper()
+    elif opt.sim_type == "medical_net":
+        sim_loss = MedicalNetLoss(normalize=opt.normalize_medical_net)
 
     epoch = 0
 
