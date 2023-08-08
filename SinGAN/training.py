@@ -207,7 +207,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     elif opt.sim_type == "vgg":
         sim_loss = VGGLossWraper()
     elif opt.sim_type == "medical_net":
-        sim_loss = MedicalNetLoss(normalize=opt.normalize_medical_net)
+        sim_loss = MedicalNetLoss(normalize=opt.normalize_medical_net, model=opt.medical_net_model)
 
     epoch = 0
 

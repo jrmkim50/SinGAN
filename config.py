@@ -78,6 +78,7 @@ def get_arguments():
     parser.add_argument('--sim_loss_one_image', action='store_true', help='only use one image for ssim loss', default=0)
 
     parser.add_argument('--normalize_medical_net', action='store_true', help='normalize the medical net inputs', default=0) # include in config tag
+    parser.add_argument('--medical_net_model', type=str, help='medical net model', default=None) # include in config tag
 
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK

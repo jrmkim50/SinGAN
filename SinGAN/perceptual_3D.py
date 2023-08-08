@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-import resnet_medicalnet
+from SinGAN import resnet_medicalnet
 
 def normalize_intensity(volume):
     pixels = volume[volume > 0]
@@ -18,14 +18,15 @@ class MedicalNetLoss(nn.Module):
     ``(B, 3, H, W)`` and must have equivalent shapes.
     """
 
-    models = {'resnet10': resnet_medicalnet.resnet10, 
-              'resnet18': resnet_medicalnet.resnet18,
-              'resnet34': resnet_medicalnet.resnet34,
-              'resnet50': resnet_medicalnet.resnet50}
+    models = {'resnet_10': resnet_medicalnet.resnet10, 
+              'resnet_18': resnet_medicalnet.resnet18,
+              'resnet_34': resnet_medicalnet.resnet34,
+              'resnet_50': resnet_medicalnet.resnet50}
 
-    def __init__(self, model='resnet50', layer=2, reduction='mean', normalize=True):
+    def __init__(self, model='resnet_50', layer=2, reduction='mean', normalize=True):
         super().__init__()
         self.reduction = reduction
+        print("loading model",model)
         self.model = self.models[model](num_seg_classes=1).cuda()
         self.model.eval()
         self.model.requires_grad_(False)
@@ -34,7 +35,7 @@ class MedicalNetLoss(nn.Module):
 
         # Load the pretrained model
         net_dict = self.model.state_dict()
-        checkpoint = torch.load(f'../../data/MedicalNet_pretrain/{model}_23dataset.pth')
+        checkpoint = torch.load(f'../data/MedicalNet_pretrain/{model}_23dataset.pth')
         remove_prefix = "module."
         pretrain_dict = {k.replace(remove_prefix, ""): v for k, v in checkpoint['state_dict'].items() \
                          if k.replace(remove_prefix, "") in net_dict.keys()}    
