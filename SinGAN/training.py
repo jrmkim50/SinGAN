@@ -223,6 +223,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     total_count = 0
     num_correct = 0
 
+    feature_loss_fn = None
+    if opt.feature_matching:
+        feature_loss_fn = nn.MSELoss()
+
     while epoch < int(niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
             z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=total_samps)
@@ -346,9 +350,15 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
         for j in range(opt.Gsteps):
             netG.zero_grad()
-            output = netD(input_d_fake)
+            output = netD(input_d_fake, feature_matching=opt.feature_matching)
             #D_fake_map = output.detach()
-            if not opt.relativistic:
+            if opt.feature_matching:
+                assert not opt.relativistic
+                feature_real = netD(input_d_real, feature_matching=opt.feature_matching)
+                assert output.shape[1] > 1
+                assert feature_real.shape[1] > 1
+                errG = feature_loss_fn(output, feature_real.detach())
+            elif not opt.relativistic:
                 errG = -output.mean()
             else:
                 errG = adversarial_loss((output_real.mean() - output.mean()).unsqueeze(0).unsqueeze(1), fake_label)

@@ -64,10 +64,12 @@ class WDiscriminator(nn.Module):
             self.body.add_module('block%d'%(i+1),block)
         self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
 
-    def forward(self,x):
+    def forward(self,x,feature_matching=False):
         x = self.head(x)
-        x = self.body(x)
-        x = self.tail(x)
+        feature = self.body(x)
+        x = self.tail(feature)
+        if feature_matching:
+            return feature
         return x
 
 
