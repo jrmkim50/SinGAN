@@ -63,12 +63,12 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
 
         D_focused = None
-        if opt.focused_discriminator and len(Gs) >= 3:
-            D_focused = init_D_only(opt)
-            if len(Gs) == 3:
-                D_focused.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
-            elif nfc_prev==opt.nfc:
-                D_focused.load_state_dict(torch.load('%s/%d/netD_focused.pth' % (opt.out_,scale_num-1)))
+        # if opt.focused_discriminator and len(Gs) >= 3:
+        #     D_focused = init_D_only(opt)
+        #     if len(Gs) == 3:
+        #         D_focused.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
+        #     elif nfc_prev==opt.nfc:
+        #         D_focused.load_state_dict(torch.load('%s/%d/netD_focused.pth' % (opt.out_,scale_num-1)))
         
         D_2d_curr = None
         if opt.with_2d_discrim:
@@ -81,8 +81,8 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
         if opt.with_2d_discrim:
             torch.save(D_2d_curr.state_dict(), '%s/netD_2d.pth' % (opt.outf))
 
-        if opt.focused_discriminator and len(Gs) >= 3:
-            torch.save(D_focused.state_dict(), '%s/netD_focused.pth' % (opt.outf))
+        # if opt.focused_discriminator and len(Gs) >= 3:
+        #     torch.save(D_focused.state_dict(), '%s/netD_focused.pth' % (opt.outf))
 
         G_curr = functions.reset_grads(G_curr,False)
         G_curr.eval()
@@ -446,11 +446,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 errG = adversarial_loss((output_real.mean() - output.mean()).unsqueeze(0).unsqueeze(1), fake_label)
                 errG += adversarial_loss((output.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), valid)
             
-            if D_focused:
+            if opt.focused_discriminator and len(Gs) >= 3:
                 fake_focused = get_ideal_slice(input_d_fake, len(Gs), 14)
                 assert fake_focused.shape[2] == 28 and fake_focused.shape[3] == 28 and fake_focused.shape[4] == 28
-                output_focused = D_focused(fake_focused)
-                errG += 0.3 * -output_focused.mean() # Trying 1 too
+                output_focused = netD(fake_focused)
+                errG += -output_focused.mean() # Trying 1 too
             
             errG.backward(retain_graph=True)
 
