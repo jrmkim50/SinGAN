@@ -61,6 +61,14 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
         if nfc_prev==opt.nfc:
             G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
+
+        D_focused = None
+        if opt.focused_discriminator and len(Gs) >= 3:
+            D_focused = init_D_only(opt)
+            if len(Gs) == 3:
+                D_focused.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
+            elif nfc_prev==opt.nfc:
+                D_focused.load_state_dict(torch.load('%s/%d/netD_focused.pth' % (opt.out_,scale_num-1)))
         
         D_2d_curr = None
         if opt.with_2d_discrim:
@@ -68,10 +76,13 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
             if nfc_prev==opt.nfc:
                 D_2d_curr.load_state_dict(torch.load('%s/%d/netD_2d.pth' % (opt.out_,scale_num-1)))
 
-        z_curr,in_s,in_s_z_opt,G_curr,D_curr,D_2d_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,D_2d_curr)
+        z_curr,in_s,in_s_z_opt,G_curr,D_curr,D_2d_curr,D_focused = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,D_2d_curr,D_focused)
 
         if opt.with_2d_discrim:
             torch.save(D_2d_curr.state_dict(), '%s/netD_2d.pth' % (opt.outf))
+
+        if opt.focused_discriminator and len(Gs) >= 3:
+            torch.save(D_focused.state_dict(), '%s/netD_focused.pth' % (opt.outf))
 
         G_curr = functions.reset_grads(G_curr,False)
         G_curr.eval()
@@ -182,7 +193,7 @@ def harmonic_mean(nums):
     assert len(nums) > 0
     return len(nums) / torch.reciprocal(nums + 1e-16).sum()
 
-def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,D_2d,centers=None):
+def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,D_2d,D_focused,centers=None):
     real = reals3D[len(Gs)]
     to_cat = [real,]
     to_cat += [pyramid[len(Gs)] for pyramid in extra_pyramids]
@@ -212,6 +223,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     if opt.with_2d_discrim:
         optimizerD_2d = optim.Adam(D_2d.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
         schedulerD_2d = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD_2d,milestones=[1600],gamma=opt.gamma)
+
+    if D_focused:
+        optimizerD_focused = optim.Adam(D_focused.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
+        schedulerD_focused = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD_focused,milestones=[1600],gamma=opt.gamma)
 
     # 2: Trying LR warmup
     def lr(epoch):
@@ -390,23 +405,23 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             errD = errD_real + errD_fake + gradient_penalty
             optimizerD.step()
 
-            if opt.focused_discriminator and len(Gs) >= 3:
-                netD.zero_grad()
+            if D_focused:
+                D_focused.zero_grad()
                 focused_real = get_ideal_slice(input_d_real, len(Gs), 14)
                 assert focused_real.shape[2] == 28 and focused_real.shape[3] == 28 and focused_real.shape[4] == 28
                 assert not opt.relativistic
-                output_real_focused = netD(focused_real).to(opt.device)
+                output_real_focused = D_focused(focused_real).to(opt.device)
                 errD_real = -output_real_focused.mean()#-a
                 errD_real.backward(retain_graph=True)
 
                 focused_fake = get_ideal_slice(input_d_fake.detach(), len(Gs), 14)
-                output_fake_focused = netD(focused_fake)
+                output_fake_focused = D_focused(focused_fake)
                 errD_fake = output_fake_focused.mean()
                 errD_fake.backward(retain_graph=True)
 
-                gradient_penalty = functions.calc_gradient_penalty(netD, focused_real, focused_fake, opt.lambda_grad, opt.device)
+                gradient_penalty = functions.calc_gradient_penalty(D_focused, focused_real, focused_fake, opt.lambda_grad, opt.device)
                 gradient_penalty.backward()    
-                optimizerD.step()
+                optimizerD_focused.step()
 
 
         errD2plot.append(errD.detach())
@@ -430,6 +445,13 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             else:
                 errG = adversarial_loss((output_real.mean() - output.mean()).unsqueeze(0).unsqueeze(1), fake_label)
                 errG += adversarial_loss((output.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), valid)
+            
+            if D_focused:
+                fake_focused = get_ideal_slice(input_d_fake, len(Gs), 14)
+                assert fake_focused.shape[2] == 28 and fake_focused.shape[3] == 28 and fake_focused.shape[4] == 28
+                output_focused = D_focused(fake_focused)
+                errG += 0.3 * -output_focused.mean() # Trying 1 too
+            
             errG.backward(retain_graph=True)
 
             if opt.with_2d_discrim:
@@ -548,13 +570,16 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
         if opt.with_2d_discrim:
             schedulerD_2d.step()
+        
+        if D_focused:
+            schedulerD_focused.step()
 
         epoch += 1
 
     print(f"DISCRIMINATOR ACCURACY ({num_correct}/{total_count}):", num_correct/total_count)
 
     functions.save_networks(netG,netD,z_opt3D,opt)
-    return z_opt3D,in_s,in_s_z_opt,netG,netD,D_2d   
+    return z_opt3D,in_s,in_s_z_opt,netG,netD,D_2d,D_focused 
 
 def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     G_z = in_s
@@ -661,6 +686,16 @@ def init_models(opt):
     print(netD)
 
     return netD, netG
+
+def init_D_only(opt):
+    #discriminator initialization:
+    netD = models.WDiscriminator(opt).to(opt.device)
+    netD.apply(models.weights_init)
+    if opt.netD != '':
+        netD.load_state_dict(torch.load(opt.netD))
+    print(netD)
+
+    return netD
 
 def init_models_2d(opt):
     #discriminator initialization:
