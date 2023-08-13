@@ -101,6 +101,26 @@ class TargetSimLoss(nn.Module):
     def forward(self, fake, real):
         return torch.abs(self.ssim(fake, real) - self.target)
     
+def get_ideal_slice(img, scale_num, SLICE_SIZE):
+    scale_to_slice = {
+        3: {
+            1: 21, 2: 14, 3: 14
+        },
+        4: {
+            1: 26, 2: 16, 3: 17
+        },
+        5: {
+            1: 32, 2: 20, 3: 21
+        },
+        6: {
+            1: 39, 2: 25, 3: 26
+        }
+    }
+    return img[:,:,
+               scale_to_slice[scale_num][1]-SLICE_SIZE:scale_to_slice[scale_num][1]+SLICE_SIZE,
+               scale_to_slice[scale_num][2]-SLICE_SIZE:scale_to_slice[scale_num][2]+SLICE_SIZE,
+               scale_to_slice[scale_num][3]-SLICE_SIZE:scale_to_slice[scale_num][3]+SLICE_SIZE]
+
 class SimLoss(nn.Module):
     def __init__(self, use_harmonic):
         self.use_harmonic = use_harmonic
@@ -369,6 +389,25 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             errD = errD_real + errD_fake + gradient_penalty
             optimizerD.step()
+
+            if opt.focused_discriminator and len(Gs) >= 3:
+                netD.zero_grad()
+                focused_real = get_ideal_slice(input_d_real, len(Gs), 14)
+                assert focused_real.shape[2] == 28 and focused_real.shape[3] == 28 and focused_real.shape[4] == 28
+                assert not opt.relativistic
+                output_real_focused = netD(focused_real).to(opt.device)
+                errD_real = -output_real_focused.mean()#-a
+                errD_real.backward(retain_graph=True)
+
+                focused_fake = get_ideal_slice(input_d_fake.detach(), len(Gs), 14)
+                output_fake_focused = netD(focused_fake)
+                errD_fake = output_fake_focused.mean()
+                errD_fake.backward(retain_graph=True)
+
+                gradient_penalty = functions.calc_gradient_penalty(netD, focused_real, focused_fake, opt.lambda_grad, opt.device)
+                gradient_penalty.backward()    
+                optimizerD.step()
+
 
         errD2plot.append(errD.detach())
 

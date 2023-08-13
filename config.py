@@ -84,6 +84,8 @@ def get_arguments():
 
     parser.add_argument('--vgg_axis', type=int, help='axis to take vgg loss on', default=None)
 
+    parser.add_argument('--focused_discriminator', action='store_true', help='discriminate center portion of image', default=0)
+
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK
     
