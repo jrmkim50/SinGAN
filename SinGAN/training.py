@@ -510,7 +510,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
                 # Trying out only bs of 1 for rec loss (2)
                 for idx in range(total_samps):
-                    rec_loss = (alpha / total_samps)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
+                    fake_recon = netG(Z_opt.detach()[idx][None],z_prev3D[idx][None])
+                    rec_loss = (alpha / total_samps)*loss(fake_recon, real_and_extra[idx][None])
+                    if opt.focused_recon and len(Gs) >= 3:
+                        rec_loss += (opt.focused_recon * (alpha / total_samps)*loss(get_ideal_slice(fake_recon, len(Gs), 14), 
+                                                                                    get_ideal_slice(real_and_extra[idx][None], len(Gs), 14)))
                     rec_loss.backward(retain_graph=True)
                     rec_loss = rec_loss.detach()
                     
