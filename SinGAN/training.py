@@ -296,9 +296,12 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             z_opt3D = m_noise3D(z_opt3D.expand(total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
             noise_3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
             noise_3D = m_noise3D(noise_3D.expand(1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
+            real_noise_3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
+            real_noise_3D = real_noise_3D.expand(1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz)
         else:
             noise_3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
             noise_3D = m_noise3D(noise_3D)
+            real_noise_3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
 
         SELECTED_IDX = random.choice(range(total_samps))
         SELECTED_REAL = real_and_extra[SELECTED_IDX][None]
@@ -315,28 +318,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             if opt.with_2d_discrim:
                 D_2d.zero_grad()
-
-            input_d_real = SELECTED_REAL
-            if opt.discrim_no_fewgan:
-                # Only show the original real image to the discriminator
-                input_d_real = real_and_extra[0][None]
-
-            output_real = netD(input_d_real).to(opt.device)
-            #D_real_map = output.detach()
-            if not opt.relativistic:
-                errD_real = -output_real.mean()#-a
-                errD_real.backward(retain_graph=True)
-
-            if opt.with_2d_discrim:
-                input_d_real_2d = input_d_real[:,:,:,input_d_real.shape[3] // 2]
-                output_real_2d = D_2d(input_d_real_2d).to(opt.device)
-                errD_real_2d = -output_real_2d.mean()#-a
-                errD_real_2d.backward(retain_graph=True)
-            
-            if output_real.detach().mean() > 0:
-                num_correct += 1
-            total_count += 1
-
 
             # train with fake
             if (j==0) & (epoch == 0):
@@ -361,6 +342,27 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             else:
                 prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
                 prev = m_image3D(prev)
+
+            input_d_real = SELECTED_REAL + opt.noise_amp * real_noise_3D
+            if opt.discrim_no_fewgan:
+                # Only show the original real image to the discriminator
+                input_d_real = real_and_extra[0][None] + opt.noise_amp * real_noise_3D
+
+            output_real = netD(input_d_real).to(opt.device)
+            #D_real_map = output.detach()
+            if not opt.relativistic:
+                errD_real = -output_real.mean()#-a
+                errD_real.backward(retain_graph=True)
+
+            if opt.with_2d_discrim:
+                input_d_real_2d = input_d_real[:,:,:,input_d_real.shape[3] // 2]
+                output_real_2d = D_2d(input_d_real_2d).to(opt.device)
+                errD_real_2d = -output_real_2d.mean()#-a
+                errD_real_2d.backward(retain_graph=True)
+            
+            if output_real.detach().mean() > 0:
+                num_correct += 1
+            total_count += 1
 
             if opt.mode == 'paint_train':
                 assert False, "not implemented"
