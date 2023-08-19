@@ -343,10 +343,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
                 prev = m_image3D(prev)
 
-            input_d_real = SELECTED_REAL + opt.noise_amp * real_noise_3D
+            input_d_real = SELECTED_REAL# + opt.noise_amp * real_noise_3D
             if opt.discrim_no_fewgan:
                 # Only show the original real image to the discriminator
-                input_d_real = real_and_extra[0][None] + opt.noise_amp * real_noise_3D
+                input_d_real = real_and_extra[0][None]# + opt.noise_amp * real_noise_3D
 
             output_real = netD(input_d_real).to(opt.device)
             #D_real_map = output.detach()
