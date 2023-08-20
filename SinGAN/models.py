@@ -71,6 +71,82 @@ class WDiscriminator(nn.Module):
         if feature_matching:
             return feature
         return x
+    
+
+class WDiscriminator_Branches(nn.Module):
+    def __init__(self, opt):
+        super(WDiscriminator_Branches, self).__init__()
+        self.is_cuda = torch.cuda.is_available()
+        self.branches = nn.ModuleList()
+        NUM_BRANCHES = 2
+        for _ in range(NUM_BRANCHES):
+            N = int(opt.nfc)
+            head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt, generator=False)
+            body = nn.Sequential()
+            num_layer = opt.num_layer_d if opt.num_layer_d else opt.num_layer
+            for i in range(num_layer-2):
+                N = int(opt.nfc/pow(2,(i+1)))
+                if i == (num_layer - 2) // 2:
+                    block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_d, generator=False)
+                elif i == (num_layer - 2 - 1):
+                    block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_d, generator=False)
+                else:
+                    block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt, generator=False)
+                body.add_module('block%d'%(i+1),block)
+            branch = nn.Sequential()
+            branch.add_module('head',head)
+            branch.add_module('body',body)
+            self.branches.append(branch)
+        self.pre_tail = nn.Conv3d(NUM_BRANCHES*max(N,opt.min_nfc),max(N,opt.min_nfc),kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
+        self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
+
+    def forward(self,x,feature_matching=False):
+        original = x
+        parts = []
+        for branch in self.branches:
+            parts.append(branch(original))
+        parts = torch.cat(parts, dim=1).to(x.device)
+        x = self.pre_tail(parts)
+        x = self.tail(x)
+        return x
+    
+
+class WDiscriminator_FocusedBranch(nn.Module):
+    def __init__(self, opt):
+        assert False, "Do not use"
+        super(WDiscriminator_FocusedBranch, self).__init__()
+        self.is_cuda = torch.cuda.is_available()
+        self.branches = nn.ModuleList()
+        NUM_BRANCHES = 2
+        for _ in range(NUM_BRANCHES):
+            N = int(opt.nfc)
+            head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt, generator=False)
+            body = nn.Sequential()
+            num_layer = opt.num_layer_d if opt.num_layer_d else opt.num_layer
+            for i in range(num_layer-2):
+                N = int(opt.nfc/pow(2,(i+1)))
+                if i == (num_layer - 2) // 2:
+                    block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_d, generator=False)
+                elif i == (num_layer - 2 - 1):
+                    block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_d, generator=False)
+                else:
+                    block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt, generator=False)
+                body.add_module('block%d'%(i+1),block)
+            branch = nn.Sequential()
+            branch.add_module('head',head)
+            branch.add_module('body',body)
+            self.branches.append(branch)
+        self.pre_tail = nn.Conv3d(NUM_BRANCHES*max(N,opt.min_nfc),max(N,opt.min_nfc),kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
+        self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
+
+    def forward(self,x,feature_matching=False):
+        assert x.shape[0] == 1 and x.shape[1] == 2
+        full = self.branches[0](x[0,0,][None,None])
+        focused = self.branches[1](x[0,1,][None,None])
+        parts = torch.cat([full, focused], dim=1).to(x.device)
+        x = self.pre_tail(parts)
+        x = self.tail(x)
+        return x
 
 
 class GeneratorConcatSkip2CleanAdd(nn.Module):

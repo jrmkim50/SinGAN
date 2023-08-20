@@ -131,6 +131,16 @@ def get_ideal_slice(img, scale_num, SLICE_SIZE):
                scale_to_slice[scale_num][1]-SLICE_SIZE:scale_to_slice[scale_num][1]+SLICE_SIZE,
                scale_to_slice[scale_num][2]-SLICE_SIZE:scale_to_slice[scale_num][2]+SLICE_SIZE,
                scale_to_slice[scale_num][3]-SLICE_SIZE:scale_to_slice[scale_num][3]+SLICE_SIZE]
+    # Uncomment for focused branch
+    # zeroes = torch.zeros_like(img)
+    # zeroes[:,:,
+    #        scale_to_slice[scale_num][1]-SLICE_SIZE:scale_to_slice[scale_num][1]+SLICE_SIZE,
+    #        scale_to_slice[scale_num][2]-SLICE_SIZE:scale_to_slice[scale_num][2]+SLICE_SIZE,  
+    #        scale_to_slice[scale_num][3]-SLICE_SIZE:scale_to_slice[scale_num][3]+SLICE_SIZE] = img[:,:,
+    #            scale_to_slice[scale_num][1]-SLICE_SIZE:scale_to_slice[scale_num][1]+SLICE_SIZE,
+    #            scale_to_slice[scale_num][2]-SLICE_SIZE:scale_to_slice[scale_num][2]+SLICE_SIZE,
+    #            scale_to_slice[scale_num][3]-SLICE_SIZE:scale_to_slice[scale_num][3]+SLICE_SIZE]
+    # return zeroes
 
 class SimLoss(nn.Module):
     def __init__(self, use_harmonic):
@@ -348,6 +358,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 # Only show the original real image to the discriminator
                 input_d_real = real_and_extra[0][None]# + opt.noise_amp * real_noise_3D
 
+            # Uncomment for focused branch
+            # if len(Gs) >= 3:
+            #     input_d_real = torch.cat([input_d_real, get_ideal_slice(input_d_real, len(Gs), 14)], dim=1)
+            # else:
+            #     input_d_real = torch.cat([input_d_real, input_d_real], dim=1)
             output_real = netD(input_d_real).to(opt.device)
             #D_real_map = output.detach()
             if not opt.relativistic:
@@ -378,6 +393,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             input_d_fake = fake
 
+            # Uncomment for focused branch
+            # if len(Gs) >= 3:
+            #     input_d_fake = torch.cat([input_d_fake, get_ideal_slice(input_d_fake, len(Gs), 14)], dim=1)
+            # else:
+            #     input_d_fake = torch.cat([input_d_fake, input_d_fake], dim=1)
             output_fake = netD(input_d_fake.detach())
             if not opt.relativistic:
                 errD_fake = output_fake.mean()
@@ -685,7 +705,7 @@ def init_models(opt):
     print(netG)
 
     #discriminator initialization:
-    netD = models.WDiscriminator(opt).to(opt.device)
+    netD = models.WDiscriminator_Branches(opt).to(opt.device)
     netD.apply(models.weights_init)
     if opt.netD != '':
         netD.load_state_dict(torch.load(opt.netD))
@@ -695,7 +715,7 @@ def init_models(opt):
 
 def init_D_only(opt):
     #discriminator initialization:
-    netD = models.WDiscriminator(opt).to(opt.device)
+    netD = models.WDiscriminator_Branches(opt).to(opt.device)
     netD.apply(models.weights_init)
     if opt.netD != '':
         netD.load_state_dict(torch.load(opt.netD))
