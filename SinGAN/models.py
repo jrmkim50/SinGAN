@@ -93,12 +93,13 @@ class WDiscriminator_Branches(nn.Module):
                 else:
                     block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt, generator=False)
                 body.add_module('block%d'%(i+1),block)
+            pre_tail = ConvBlock(max(N,opt.min_nfc),1,opt.ker_size,opt.padd_size,1,opt, generator=False)
             branch = nn.Sequential()
             branch.add_module('head',head)
             branch.add_module('body',body)
+            branch.add_module('pre_tail',pre_tail)
             self.branches.append(branch)
-        self.pre_tail = ConvBlock(NUM_BRANCHES*max(N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt, generator=False)
-        self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
+        self.tail = nn.Conv3d(NUM_BRANCHES,1,kernel_size=opt.ker_size,stride=1,padding=opt.padd_size)
 
     def forward(self,x,feature_matching=False):
         original = x
@@ -106,8 +107,7 @@ class WDiscriminator_Branches(nn.Module):
         for branch in self.branches:
             parts.append(branch(original))
         parts = torch.cat(parts, dim=1).to(x.device)
-        x = self.pre_tail(parts)
-        x = self.tail(x)
+        x = self.tail(parts)
         return x
     
 
