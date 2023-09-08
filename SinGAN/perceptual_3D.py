@@ -23,13 +23,11 @@ class MedicalNetLoss(nn.Module):
               'resnet_34': resnet_medicalnet.resnet34,
               'resnet_50': resnet_medicalnet.resnet50}
 
-    def __init__(self, model='resnet_50', layer=2, reduction='mean', normalize=True):
+    def __init__(self, model='resnet_50', layer=3, reduction='mean', normalize=True):
         super().__init__()
         self.reduction = reduction
         print("loading model",model)
         self.model = self.models[model](num_seg_classes=1).cuda()
-        self.model.eval()
-        self.model.requires_grad_(False)
         self.layer = layer
         self.normalize = normalize
 
@@ -42,6 +40,8 @@ class MedicalNetLoss(nn.Module):
         assert len(pretrain_dict.keys()) > 0    
         net_dict.update(pretrain_dict)
         self.model.load_state_dict(net_dict)
+        self.model.eval()
+        self.model.requires_grad_(False)
 
     def forward(self, input, target):
         if self.normalize:

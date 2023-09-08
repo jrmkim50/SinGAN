@@ -78,7 +78,7 @@ class WDiscriminator_Branches(nn.Module):
         super(WDiscriminator_Branches, self).__init__()
         self.is_cuda = torch.cuda.is_available()
         self.branches = nn.ModuleList()
-        NUM_BRANCHES = 6
+        NUM_BRANCHES = 4
         for _ in range(NUM_BRANCHES):
             N = int(opt.nfc)
             head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt, generator=False)
