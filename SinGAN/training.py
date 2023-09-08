@@ -578,7 +578,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 plt.imsave('%s/real_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(real_and_extra[idx][None], opt=opt), vmin=0, vmax=1)
                 for name, img in [("z_prev", z_prev3D[idx][None]), ("opt_img", opt_img[None]), ("real", real_and_extra[idx][None])]:
                     to_save = functions.convert_image_np3D(img, eval=True, opt=opt)
-                    img = nib.Nifti1Image(to_save[:,:,:,0], np.eye(4))
+                    img = nib.Nifti1Image(to_save[:,:,:,:], np.eye(4))
                     nib.save(img, os.path.join(opt.outf, f"{name}_{idx}.nii.gz"))
             # 3: end
             #plt.imsave('%s/D_fake.png'   % (opt.outf), functions.convert_image_np(D_fake_map))

@@ -149,7 +149,7 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
                         # w,d,h,channel
                         data = functions.convert_image_np3D(I_curr.detach(), eval=True, opt=opt)
                         plt.imsave('%s/%d_%d-pet.png' % (dir2save, n, i), data[:,data.shape[1] // 2,:, 0], vmin=0,vmax=1)
-                        pet_img = nib.Nifti1Image(data[:,:,:,0], np.eye(4))
+                        pet_img = nib.Nifti1Image(data[:,:,:,:], np.eye(4))
                         nib.save(pet_img, os.path.join(dir2save, f"{n}_{i}-pet.nii.gz"))
                     #plt.imsave('%s/%d_%d.png' % (dir2save,i,n),functions.convert_image_np(I_curr.detach()), vmin=0, vmax=1)
                     #plt.imsave('%s/in_s.png' % (dir2save), functions.convert_image_np(in_s), vmin=0,vmax=1)
