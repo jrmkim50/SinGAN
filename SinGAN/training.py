@@ -253,12 +253,12 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     if opt.warmup_d:
         schedulerD = optim.lr_scheduler.LambdaLR(optimizerD, lr_lambda=lr)
     else:
-        schedulerD = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD,milestones=[1600],gamma=opt.gamma)
+        schedulerD = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD,milestones=[0.8*opt.niter],gamma=opt.gamma)
     
     if opt.warmup_g:
         schedulerG = optim.lr_scheduler.LambdaLR(optimizerG, lr_lambda=lr)
     else:
-        schedulerG = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerG,milestones=[1600],gamma=opt.gamma)
+        schedulerG = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerG,milestones=[0.8*opt.niter],gamma=opt.gamma)
     # schedulerD = torch.optim.lr_scheduler.CyclicLR(optimizerD, base_lr=0.01*opt.lr_d, max_lr=opt.lr_d, step_size_up=100, cycle_momentum=False)
 
     errD2plot = []

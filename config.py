@@ -21,6 +21,7 @@ def get_arguments():
     parser.add_argument('--nfc', type=int, default=32)
     parser.add_argument('--min_nfc', type=int, default=32)
     parser.add_argument('--ker_size',type=int,help='kernel size',default=3)
+    parser.add_argument('--ker_size_d',type=int,help='kernel size of discrim',default=3)
     parser.add_argument('--num_layer',type=int,help='number of layers',default=5)
     parser.add_argument('--num_layer_d',type=int, help='number of layers in discrim',default=0)
     parser.add_argument('--stride',help='stride',default=1)
