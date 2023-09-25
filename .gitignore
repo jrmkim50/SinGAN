@@ -9,3 +9,4 @@ singan_env
 Input/Images/*
 test.py
 *.sh
+sifid_images/*
