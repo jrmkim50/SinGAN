@@ -275,7 +275,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             output_real = netD(input_d_real).to(opt.device)
             errD_real = -output_real.mean()#-a
-            errD_real.backward(retain_graph=True)
+            if not opt.update_in_one_go:
+                errD_real.backward()
 
             if output_real.detach().mean() > 0:
                 num_correct += 1
@@ -292,16 +293,20 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             output_fake = netD(input_d_fake.detach())
             errD_fake = output_fake.mean()
-            errD_fake.backward(retain_graph=True)
+            if not opt.update_in_one_go:
+                errD_fake.backward()
 
             if output_fake.detach().mean() < 0:
                 num_correct += 1
             total_count += 1
 
             gradient_penalty = functions.calc_gradient_penalty(netD, input_d_real, input_d_fake, opt.lambda_grad, opt.device)
-            gradient_penalty.backward()
+            if not opt.update_in_one_go:
+                gradient_penalty.backward()
 
             errD = errD_real + errD_fake + gradient_penalty
+            if opt.update_in_one_go:
+                errD.backward()
             optimizerD.step()
 
         errD2plot.append(errD.detach())
@@ -316,11 +321,14 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             #D_fake_map = output.detach()
             errG = -output.mean()
             
-            errG.backward(retain_graph=True)
+            if not opt.update_in_one_go:
+                errG.backward(retain_graph=True)
             
             should_compute_sim = (opt.sim_alpha != 0 and 
                                   ((opt.sim_boundary_type == "start" and len(Gs) >= opt.sim_boundary) or 
                                    (opt.sim_boundary_type == "end" and len(Gs) <= opt.sim_boundary)))
+
+            ssim_loss = 0
 
             if should_compute_sim:
                 fake_adjusted = (fake + 1) / 2
@@ -334,7 +342,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 else:
                     ssim_loss = sim_loss(fake_adjusted, real_adjusted)
                 ssim_loss = opt.sim_alpha * ssim_loss
-                ssim_loss.backward(retain_graph=True)
+                if not opt.update_in_one_go:
+                    ssim_loss.backward(retain_graph=True)
+
+            rec_loss = 0
 
             if alpha!=0:
                 loss = nn.L1Loss()
@@ -342,20 +353,26 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 Z_opt = opt.noise_amp*z_opt3D+z_prev3D
                 assert Z_opt.shape[:2] == real_and_extra.shape[:2], f"{Z_opt.shape} versus {real_and_extra.shape}"
                 assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
-                # Trying out only bs of 1 for rec loss (2)
-                for idx in range(total_samps):
-                    fake_recon = netG(Z_opt.detach()[idx][None],z_prev3D[idx][None])
-                    rec_loss = (alpha / total_samps)*loss(fake_recon, real_and_extra[idx][None])
-                    rec_loss.backward(retain_graph=True)
-                    rec_loss = rec_loss.detach()
+                if not opt.update_in_one_go:
+                    for idx in range(total_samps):
+                        fake_recon = netG(Z_opt.detach()[idx][None],z_prev3D[idx][None])
+                        rec_loss = (alpha / total_samps)*loss(fake_recon, real_and_extra[idx][None])
+                        rec_loss.backward(retain_graph=True)
+                else:
+                    fake_recon = netG(Z_opt.detach(),z_prev3D)
+                    rec_loss = alpha*loss(fake_recon, real_and_extra)
             else:
                 Z_opt = z_opt3D
                 rec_loss = 0
 
+            if opt.update_in_one_go:
+                errGTotal = errG + ssim_loss + rec_loss
+                errGTotal.backward(retain_graph=True)
+
             optimizerG.step()
 
-        errG2plot.append(errG.detach()+rec_loss)
-        z_opt2plot.append(rec_loss)
+        errG2plot.append(errG.detach()+rec_loss.detach())
+        z_opt2plot.append(rec_loss.detach())
 
         if epoch % 25 == 0 or epoch == (niter-1):
             print('scale %d:[%d/%d]; d_accuracy: [%.3f]' % (len(Gs), epoch, niter, num_correct/total_count))

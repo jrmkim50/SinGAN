@@ -78,6 +78,8 @@ def get_arguments():
 
     parser.add_argument('--vgg_axis', type=int, help='axis to take vgg loss on', default=None)
 
+    parser.add_argument('--update_in_one_go', action='store_true', help='updates models with errors at once', default=0)
+
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK
     
