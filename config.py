@@ -47,7 +47,7 @@ def get_arguments():
     # parser.add_argument('--linear_sim',type=int, help='0 for no linear, 1 for decreasing linear, 0 for increasing linear',default=0)
     parser.add_argument('--sim_alpha',type=float, help='simularity loss weight',default=10)
     parser.add_argument('--sim_boundary',type=int, help='Apply sim loss from pyramid layers [sim_boundary, num_stages) or [0,sim_boundary]',default=3)
-    parser.add_argument('--sim_boundary_type',type=str, help='Is the boundary a start or an end?',default='start')
+    parser.add_argument('--sim_boundary_type',type=str, help='Is the boundary a start or an end?',default='start',choices=["start", "end"])
     parser.add_argument('--sim_type',type=str, help='What type of sim loss?',default='vgg') # include in config tag
     parser.add_argument('--use_attention_g',type=int, help='Use attention?',default=1)
     parser.add_argument('--use_attention_end_g',type=int, help='Use attention?',default=1)
