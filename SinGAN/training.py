@@ -62,27 +62,7 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
             G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
 
-        D_focused = None
-        if opt.focused_discriminator and len(Gs) >= 3:
-            D_focused = init_D_only(opt)
-            if len(Gs) == 3:
-                D_focused.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
-            elif nfc_prev==opt.nfc:
-                D_focused.load_state_dict(torch.load('%s/%d/netD_focused.pth' % (opt.out_,scale_num-1)))
-        
-        D_2d_curr = None
-        if opt.with_2d_discrim:
-            D_2d_curr = init_models_2d(opt)
-            if nfc_prev==opt.nfc:
-                D_2d_curr.load_state_dict(torch.load('%s/%d/netD_2d.pth' % (opt.out_,scale_num-1)))
-
-        z_curr,in_s,in_s_z_opt,G_curr,D_curr,D_2d_curr,D_focused = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,D_2d_curr,D_focused)
-
-        if opt.with_2d_discrim:
-            torch.save(D_2d_curr.state_dict(), '%s/netD_2d.pth' % (opt.outf))
-
-        if opt.focused_discriminator and len(Gs) >= 3:
-            torch.save(D_focused.state_dict(), '%s/netD_focused.pth' % (opt.outf))
+        z_curr,in_s,in_s_z_opt,G_curr,D_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt)
 
         G_curr = functions.reset_grads(G_curr,False)
         G_curr.eval()
@@ -102,45 +82,6 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
         nfc_prev = opt.nfc
         del D_curr,G_curr
     return
-
-class TargetSimLoss(nn.Module):
-    def __init__(self, target, ssim):
-        super(TargetSimLoss, self).__init__()
-        self.target = target
-        self.ssim = ssim
-
-    def forward(self, fake, real):
-        return torch.abs(self.ssim(fake, real) - self.target)
-    
-def get_ideal_slice(img, scale_num, SLICE_SIZE):
-    scale_to_slice = {
-        3: {
-            1: 21, 2: 14, 3: 14
-        },
-        4: {
-            1: 26, 2: 16, 3: 17
-        },
-        5: {
-            1: 32, 2: 20, 3: 21
-        },
-        6: {
-            1: 39, 2: 25, 3: 26
-        }
-    }
-    return img[:,:,
-               scale_to_slice[scale_num][1]-SLICE_SIZE:scale_to_slice[scale_num][1]+SLICE_SIZE,
-               scale_to_slice[scale_num][2]-SLICE_SIZE:scale_to_slice[scale_num][2]+SLICE_SIZE,
-               scale_to_slice[scale_num][3]-SLICE_SIZE:scale_to_slice[scale_num][3]+SLICE_SIZE]
-    # Uncomment for focused branch
-    # zeroes = torch.zeros_like(img)
-    # zeroes[:,:,
-    #        scale_to_slice[scale_num][1]-SLICE_SIZE:scale_to_slice[scale_num][1]+SLICE_SIZE,
-    #        scale_to_slice[scale_num][2]-SLICE_SIZE:scale_to_slice[scale_num][2]+SLICE_SIZE,  
-    #        scale_to_slice[scale_num][3]-SLICE_SIZE:scale_to_slice[scale_num][3]+SLICE_SIZE] = img[:,:,
-    #            scale_to_slice[scale_num][1]-SLICE_SIZE:scale_to_slice[scale_num][1]+SLICE_SIZE,
-    #            scale_to_slice[scale_num][2]-SLICE_SIZE:scale_to_slice[scale_num][2]+SLICE_SIZE,
-    #            scale_to_slice[scale_num][3]-SLICE_SIZE:scale_to_slice[scale_num][3]+SLICE_SIZE]
-    # return zeroes
 
 class SimLoss(nn.Module):
     def __init__(self, use_harmonic):
@@ -203,7 +144,7 @@ def harmonic_mean(nums):
     assert len(nums) > 0
     return len(nums) / torch.reciprocal(nums + 1e-16).sum()
 
-def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,D_2d,D_focused,centers=None):
+def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,centers=None):
     real = reals3D[len(Gs)]
     to_cat = [real,]
     to_cat += [pyramid[len(Gs)] for pyramid in extra_pyramids]
@@ -229,14 +170,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     # setup optimizer
     optimizerD = optim.Adam(netD.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
     optimizerG = optim.Adam(netG.parameters(), lr=opt.lr_g, betas=(opt.beta1, 0.999))
-
-    if opt.with_2d_discrim:
-        optimizerD_2d = optim.Adam(D_2d.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
-        schedulerD_2d = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD_2d,milestones=[1600],gamma=opt.gamma)
-
-    if D_focused:
-        optimizerD_focused = optim.Adam(D_focused.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
-        schedulerD_focused = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD_focused,milestones=[1600],gamma=opt.gamma)
 
     # 2: Trying LR warmup
     def lr(epoch):
@@ -267,16 +200,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     D_fake2plot = []
     z_opt2plot = []
 
-
-    adversarial_loss = torch.nn.BCEWithLogitsLoss() if opt.relativistic else None
-    ssim_target = TargetSimLoss(0.8, ssim).cuda() if opt.sim_type == "ssim_target" else None
     sim_loss = None
-    assert opt.sim_type in ["vgg", "ssim", "ssim_target", "medical_net"]
+    assert opt.sim_type in ["vgg", "ssim", "medical_net"]
     assert opt.sim_boundary_type in ["start", "end"]
     if opt.sim_type == "ssim":
         sim_loss = SimLoss(use_harmonic=opt.harmonic_ssim).cuda()
-    elif opt.sim_type == "ssim_target":
-        sim_loss = ssim_target
     elif opt.sim_type == "vgg":
         sim_loss = VGGLossWraper(opt.vgg_axis, len(Gs))
     elif opt.sim_type == "medical_net":
@@ -295,10 +223,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
     total_count = 0
     num_correct = 0
-
-    feature_loss_fn = None
-    if opt.feature_matching:
-        feature_loss_fn = nn.MSELoss()
 
     while epoch < int(niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
@@ -320,14 +244,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         # (1) Update D network: maximize D(x) + D(G(z))
         ###########################
         for j in range(opt.Dsteps):
-            valid = torch.full((1,1), 1.0).to(opt.device)
-            fake_label = torch.full((1,1), 0.0).to(opt.device)
-
             # train with real
             netD.zero_grad()
-
-            if opt.with_2d_discrim:
-                D_2d.zero_grad()
 
             # train with fake
             if (j==0) & (epoch == 0):
@@ -354,35 +272,14 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 prev = m_image3D(prev)
 
             input_d_real = SELECTED_REAL# + opt.noise_amp * real_noise_3D
-            if opt.discrim_no_fewgan:
-                # Only show the original real image to the discriminator
-                input_d_real = real_and_extra[0][None]# + opt.noise_amp * real_noise_3D
 
-            # Uncomment for focused branch
-            # if len(Gs) >= 3:
-            #     input_d_real = torch.cat([input_d_real, get_ideal_slice(input_d_real, len(Gs), 14)], dim=1)
-            # else:
-            #     input_d_real = torch.cat([input_d_real, input_d_real], dim=1)
             output_real = netD(input_d_real).to(opt.device)
-            #D_real_map = output.detach()
-            if not opt.relativistic:
-                errD_real = -output_real.mean()#-a
-                errD_real.backward(retain_graph=True)
+            errD_real = -output_real.mean()#-a
+            errD_real.backward(retain_graph=True)
 
-            if opt.with_2d_discrim:
-                input_d_real_2d = input_d_real[:,:,:,input_d_real.shape[3] // 2]
-                output_real_2d = D_2d(input_d_real_2d).to(opt.device)
-                errD_real_2d = -output_real_2d.mean()#-a
-                errD_real_2d.backward(retain_graph=True)
-            
             if output_real.detach().mean() > 0:
                 num_correct += 1
             total_count += 1
-
-            if opt.mode == 'paint_train':
-                assert False, "not implemented"
-                prev = functions.quant2centers(prev,centers)
-                plt.imsave('%s/prev.png' % (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
 
             if (Gs == []) & (opt.mode != 'SR_train'):
                 noise3D = noise_3D
@@ -393,29 +290,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             input_d_fake = fake
 
-            # Uncomment for focused branch
-            # if len(Gs) >= 3:
-            #     input_d_fake = torch.cat([input_d_fake, get_ideal_slice(input_d_fake, len(Gs), 14)], dim=1)
-            # else:
-            #     input_d_fake = torch.cat([input_d_fake, input_d_fake], dim=1)
             output_fake = netD(input_d_fake.detach())
-            if not opt.relativistic:
-                errD_fake = output_fake.mean()
-                errD_fake.backward(retain_graph=True)
-            else:
-                errD_real = adversarial_loss((output_real.mean() - output_fake.mean()).unsqueeze(0).unsqueeze(1), valid)
-                errD_real.backward(retain_graph=True)
-                errD_fake = adversarial_loss((output_fake.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), fake_label)
-                errD_fake.backward(retain_graph=True)
-
-            if opt.with_2d_discrim:
-                input_d_fake_2d = input_d_fake[:,:,:,input_d_fake.shape[3] // 2]
-                output_fake_2d = D_2d(input_d_fake_2d).to(opt.device)
-                errD_fake_2d = output_fake_2d.mean()#-a
-                errD_fake_2d.backward(retain_graph=True)
-                gradient_penalty_2d = functions.calc_gradient_penalty(D_2d, input_d_real_2d, input_d_fake_2d, opt.lambda_grad, opt.device)
-                gradient_penalty_2d.backward()
-                optimizerD_2d.step()
+            errD_fake = output_fake.mean()
+            errD_fake.backward(retain_graph=True)
 
             if output_fake.detach().mean() < 0:
                 num_correct += 1
@@ -427,25 +304,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             errD = errD_real + errD_fake + gradient_penalty
             optimizerD.step()
 
-            if D_focused:
-                D_focused.zero_grad()
-                focused_real = get_ideal_slice(input_d_real, len(Gs), 14)
-                assert focused_real.shape[2] == 28 and focused_real.shape[3] == 28 and focused_real.shape[4] == 28
-                assert not opt.relativistic
-                output_real_focused = D_focused(focused_real).to(opt.device)
-                errD_real = -output_real_focused.mean()#-a
-                errD_real.backward(retain_graph=True)
-
-                focused_fake = get_ideal_slice(input_d_fake.detach(), len(Gs), 14)
-                output_fake_focused = D_focused(focused_fake)
-                errD_fake = output_fake_focused.mean()
-                errD_fake.backward(retain_graph=True)
-
-                gradient_penalty = functions.calc_gradient_penalty(D_focused, focused_real, focused_fake, opt.lambda_grad, opt.device)
-                gradient_penalty.backward()    
-                optimizerD_focused.step()
-
-
         errD2plot.append(errD.detach())
 
         ############################
@@ -454,45 +312,12 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
         for j in range(opt.Gsteps):
             netG.zero_grad()
-            output = netD(input_d_fake, feature_matching=opt.feature_matching)
+            output = netD(input_d_fake)
             #D_fake_map = output.detach()
-            if opt.feature_matching:
-                assert not opt.relativistic
-                feature_real = netD(input_d_real, feature_matching=opt.feature_matching)
-                assert output.shape[1] > 1
-                assert feature_real.shape[1] > 1
-                errG = feature_loss_fn(output, feature_real.detach())
-            elif not opt.relativistic:
-                errG = -output.mean()
-            else:
-                errG = adversarial_loss((output_real.mean() - output.mean()).unsqueeze(0).unsqueeze(1), fake_label)
-                errG += adversarial_loss((output.mean() - output_real.mean()).unsqueeze(0).unsqueeze(1), valid)
-            
-            if D_focused:
-                fake_focused = get_ideal_slice(input_d_fake, len(Gs), 14)
-                assert fake_focused.shape[2] == 28 and fake_focused.shape[3] == 28 and fake_focused.shape[4] == 28
-                output_focused = D_focused(fake_focused)
-                errG += 0.3 * -output_focused.mean() # Trying 1 too
+            errG = -output.mean()
             
             errG.backward(retain_graph=True)
-
-            if opt.with_2d_discrim:
-                output_2d = D_2d(input_d_fake_2d)
-                errG_2d = opt.with_2d_discrim * -output_2d.mean()
-                errG_2d.backward(retain_graph=True)
             
-            # Similarity loss (only apply for sim alpha != 0)
-            # if opt.linear_sim:
-            #     fake_adjusted = (fake + 1) / 2
-            #     real_adjusted = (SELECTED_REAL + 1) / 2
-            #     assert fake_adjusted.shape == real_adjusted.shape
-            #     ssim_loss = sim_loss(fake_adjusted, real_adjusted)
-            #     if opt.linear_sim == 1: # decreasing linear
-            #         alpha = (opt.stop_scale - len(Gs) + 1) * opt.sim_alpha
-            #     else: # increasing linear
-            #         alpha = (len(Gs) + 1) * opt.sim_alpha
-            #     errG += alpha * ssim_loss
-            # elif [...]
             if opt.sim_alpha != 0 and opt.sim_boundary_type == "start":
                 if len(Gs) >= opt.sim_boundary:
                     fake_adjusted = (fake + 1) / 2
@@ -534,28 +359,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 for idx in range(total_samps):
                     fake_recon = netG(Z_opt.detach()[idx][None],z_prev3D[idx][None])
                     rec_loss = (alpha / total_samps)*loss(fake_recon, real_and_extra[idx][None])
-                    if opt.focused_recon and len(Gs) >= 3:
-                        rec_loss += (opt.focused_recon * (alpha / total_samps)*loss(get_ideal_slice(fake_recon, len(Gs), 14), 
-                                                                                    get_ideal_slice(real_and_extra[idx][None], len(Gs), 14)))
                     rec_loss.backward(retain_graph=True)
                     rec_loss = rec_loss.detach()
-                    
-                # Trying out different bs of 1 rec loss (3: recon_bs_1_type2)
-                # rec_loss = 0
-                # for idx in range(total_samps):
-                #     rec_loss += (alpha / total_samps)*loss(netG(Z_opt.detach()[idx][None],z_prev3D[idx][None]), real_and_extra[idx][None])
-                # rec_loss.backward(retain_graph=True)
-                # rec_loss = rec_loss.detach()
-
-                # Trying out a different bs of 1 rec loss (4: recon_bs_1_type3)
-                # rec_loss = alpha*loss(netG(Z_opt.detach()[SELECTED_IDX][None],z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
-                # rec_loss.backward(retain_graph=True)
-                # rec_loss = rec_loss.detach()
-                # rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev3D), real_and_extra)
-                
-                # rec_loss = alpha*loss(netG(Z_opt[SELECTED_IDX][None].detach(),z_prev3D[SELECTED_IDX][None]), SELECTED_REAL)
-                # rec_loss.backward(retain_graph=True)
-                # rec_loss = rec_loss.detach()
             else:
                 Z_opt = z_opt3D
                 rec_loss = 0
@@ -580,13 +385,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                     to_save = functions.convert_image_np3D(img, eval=True, opt=opt)
                     img = nib.Nifti1Image(to_save[:,:,:,:], np.eye(4))
                     nib.save(img, os.path.join(opt.outf, f"{name}_{idx}.nii.gz"))
-            # 3: end
-            #plt.imsave('%s/D_fake.png'   % (opt.outf), functions.convert_image_np(D_fake_map))
-            #plt.imsave('%s/D_real.png'   % (opt.outf), functions.convert_image_np(D_real_map))
-            #plt.imsave('%s/z_opt.png'    % (opt.outf), functions.convert_image_np(z_opt.detach()), vmin=0, vmax=1)
-            #plt.imsave('%s/prev.png'     %  (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
-            #plt.imsave('%s/noise.png'    %  (opt.outf), functions.convert_image_np(noise), vmin=0, vmax=1)
-            #plt.imsave('%s/z_prev.png'   % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
 
 
             torch.save(z_opt3D, '%s/z_opt.pth' % (opt.outf))
@@ -594,18 +392,12 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         schedulerD.step()
         schedulerG.step()
 
-        if opt.with_2d_discrim:
-            schedulerD_2d.step()
-        
-        if D_focused:
-            schedulerD_focused.step()
-
         epoch += 1
 
     print(f"DISCRIMINATOR ACCURACY ({num_correct}/{total_count}):", num_correct/total_count)
 
     functions.save_networks(netG,netD,z_opt3D,opt)
-    return z_opt3D,in_s,in_s_z_opt,netG,netD,D_2d,D_focused 
+    return z_opt3D,in_s,in_s_z_opt,netG,netD 
 
 def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     G_z = in_s
@@ -712,21 +504,3 @@ def init_models(opt):
     print(netD)
 
     return netD, netG
-
-def init_D_only(opt):
-    #discriminator initialization:
-    netD = models.WDiscriminator(opt).to(opt.device)
-    netD.apply(models.weights_init)
-    if opt.netD != '':
-        netD.load_state_dict(torch.load(opt.netD))
-    print(netD)
-
-    return netD
-
-def init_models_2d(opt):
-    #discriminator initialization:
-    netD = models_2d.WDiscriminator(opt).to(opt.device)
-    netD.apply(models_2d.weights_init)
-    print(netD)
-
-    return netD

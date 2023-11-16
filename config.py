@@ -59,14 +59,11 @@ def get_arguments():
 
     parser.add_argument('--groupnorm', action='store_true', help='use groupnorm', default=0)
     parser.add_argument('--prelu', action='store_true', help='use prelu', default=0)
-    parser.add_argument('--relativistic', action='store_true', help='use relativistic discrim', default=0)
     parser.add_argument('--train_last_layer_longer', action='store_true', help='train last scale for 2 * original num iters', default=0)
     parser.add_argument('--train_first_layers_longer', type=int, help='train first n scales for 2 * original num iters', default=0)
 
     parser.add_argument('--split_image', action='store_true', help='fold image in half', default=0)
     parser.add_argument('--harmonic_ssim', action='store_true', help='use harmonic mean ssim value', default=0)
-
-    parser.add_argument('--discrim_no_fewgan', action='store_true', help='only train discriminator with original real image', default=0)
 
     parser.add_argument('--warmup_g', action='store_true', help='warmup for generator', default=0)
     parser.add_argument('--warmup_d', action='store_true', help='warmup for discriminator', default=0)
@@ -74,20 +71,12 @@ def get_arguments():
     parser.add_argument('--spectral_norm_g', action='store_true', help='spectral norm for generator', default=0)
     parser.add_argument('--spectral_norm_d', action='store_true', help='spectral norm for discriminator', default=0)
 
-    parser.add_argument('--with_2d_discrim', type=int, help='train with a 2d discriminator too', default=0)
-
     parser.add_argument('--sim_loss_one_image', action='store_true', help='only use one image for ssim loss', default=0)
 
     parser.add_argument('--normalize_medical_net', action='store_true', help='normalize the medical net inputs', default=0) # include in config tag
     parser.add_argument('--medical_net_model', type=str, help='medical net model', default=None) # include in config tag
 
-    parser.add_argument('--feature_matching', action='store_true', help='use feature matching loss', default=0)
-
     parser.add_argument('--vgg_axis', type=int, help='axis to take vgg loss on', default=None)
-
-    parser.add_argument('--focused_discriminator', action='store_true', help='discriminate center portion of image', default=0)
-
-    parser.add_argument('--focused_recon', type=float, help='discriminate center portion of image', default=0)
 
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK
