@@ -100,4 +100,79 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
         summed = x + y
         return summed
+    
+
+class encoderBlock(nn.Module):
+    def __init__(self, in_c, out_c, ker_size, padd, stride, opt, use_attn=False, generator=True):
+        super().__init__()
+        self.conv = ConvBlock(in_c, out_c, ker_size, padd, stride, opt, use_attn, generator)
+        self.pool = nn.MaxPool3d(2)
+    
+    def forward(self, inputs):
+        x = self.conv(inputs)
+        p = self.pool(x)
+        return x, p
+    
+class decoderBlock(nn.Module):
+    def __init__(self, in_c, out_c, ker_size, padd, stride, opt, use_attn=False, generator=True):
+        super().__init__()
+        self.up = nn.Sequential(
+            nn.Upsample(scale_factor=2),
+            nn.Conv3d(in_c, out_c, kernel_size=ker_size,padding=ker_size//2)
+        )
+        self.conv = ConvBlock(out_c+out_c, out_c, ker_size, padd, stride, opt, use_attn, generator)
+    
+    def forward(self, inputs, skip):
+        x = self.up(inputs)
+        diffZ = skip.size()[2] - x.size()[2]
+        diffY = skip.size()[3] - x.size()[3]
+        diffX = skip.size()[4] - x.size()[4]
+
+        x = F.pad(x, [diffX // 2, diffX - diffX // 2,
+                      diffY // 2, diffY - diffY // 2, 
+                      diffZ // 2, diffZ - diffZ // 2])
+        
+        x = torch.cat([x, skip], axis=1)
+        x = self.conv(x)
+        return x
+
+class Unet(nn.Module):
+    def __init__(self, opt, is_generator):
+        super().__init__()
+        # input size == output size
+        N = opt.nfc
+        self.e1 = encoderBlock(opt.nc_im, N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
+        self.e2 = encoderBlock(N, 2*N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
+        self.e3 = encoderBlock(2*N, 2*N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
+        
+        self.b = ConvBlock(2*N, 2*N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
+
+        self.d1 = decoderBlock(2*N, 2*N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
+        self.d2 = decoderBlock(2*N, 2*N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
+        self.d3 = decoderBlock(2*N, N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
+
+        self.outputs = nn.Sequential(
+            nn.Conv3d(N, opt.nc_im, kernel_size=1, padding=0),
+            nn.Tanh()
+        )
+    
+    def forward(self, x, y):
+        
+        s1, p1 = self.e1(x)
+        s2, p2 = self.e2(p1)
+        s3, p3 = self.e3(p2)
+
+        b = self.b(p3)
+
+        d1 = self.d1(b, s3)
+        d2 = self.d2(d1, s2)
+        d3 = self.d3(d2, s1)
+
+        x = self.outputs(d3)
+        # TODO: does this summing help??
+        ind = int((y.shape[2]-x.shape[2])/2)
+        y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
+        summed = x + y
+        return summed
+
         

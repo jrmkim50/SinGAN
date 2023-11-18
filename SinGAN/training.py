@@ -156,8 +156,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     opt.nzy = real.shape[3]#+(opt.ker_size-1)*(opt.num_layer)
     opt.nzz = real.shape[4]#+(opt.ker_size-1)*(opt.num_layer)
     opt.receptive_field = opt.ker_size + ((opt.ker_size-1)*(opt.num_layer-1))*opt.stride
-    pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2)
-    pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2)
+    pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2) if not opt.unetG else 0
+    pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2) if not opt.unetG else 0
     m_noise3D = nn.ConstantPad3d(int(pad_noise), 0)
     m_image3D = nn.ConstantPad3d(int(pad_image), 0)
 
@@ -301,6 +301,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             fake = netG(noise3D.detach(),prev)
 
+            assert fake.shape == input_d_real.shape
+
             input_d_fake = fake
 
             output_fake = netD(input_d_fake.detach())
@@ -425,7 +427,7 @@ def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     if len(Gs) > 0:
         if mode == 'rand':
             count = 0
-            pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2)
+            pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2) if not opt.unetG else 0
             if opt.mode == 'animation_train':
                 pad_noise = 0
             for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
@@ -511,7 +513,7 @@ def train_paint(opt,Gs,Zs,reals,NoiseAmp,centers,paint_inject_scale):
 def init_models(opt):
 
     #generator initialization:
-    netG = models.GeneratorConcatSkip2CleanAdd(opt).to(opt.device)
+    netG = models.GeneratorConcatSkip2CleanAdd(opt).to(opt.device) if not opt.unetG else models.Unet(opt, True).to(opt.device)
     netG.apply(models.weights_init)
     if opt.netG != '':
         netG.load_state_dict(torch.load(opt.netG))
