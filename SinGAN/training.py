@@ -245,12 +245,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             z_opt3D = m_noise3D(z_opt3D.expand(total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
             noise_3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
             noise_3D = m_noise3D(noise_3D.expand(1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
-            real_noise_3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
-            real_noise_3D = real_noise_3D.expand(1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz)
         else:
             noise_3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
             noise_3D = m_noise3D(noise_3D)
-            real_noise_3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
 
         SELECTED_IDX = random.choice(range(total_samps))
         SELECTED_REAL = real_and_extra[SELECTED_IDX][None]
@@ -286,7 +283,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 prev = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,'rand',m_noise3D,m_image3D,opt)
                 prev = m_image3D(prev)
 
-            input_d_real = SELECTED_REAL# + opt.noise_amp * real_noise_3D
+            input_d_real = SELECTED_REAL
 
             output_real = netD(input_d_real).to(opt.device)
             errD_real = -output_real.mean()#-a
