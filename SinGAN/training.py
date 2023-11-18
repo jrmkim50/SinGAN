@@ -332,33 +332,37 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
         for j in range(opt.Gsteps):
             netG.zero_grad()
-            output = netD(input_d_fake)
-            #D_fake_map = output.detach()
-            errG = -output.mean()
-            
-            if not opt.update_in_one_go:
-                errG.backward(retain_graph=True)
-            
-            should_compute_sim = (opt.sim_alpha != 0 and 
-                                  ((opt.sim_boundary_type == "start" and len(Gs) >= opt.sim_boundary) or 
-                                   (opt.sim_boundary_type == "end" and len(Gs) <= opt.sim_boundary)))
-
-            ssim_loss = 0
-
-            if should_compute_sim:
-                fake_adjusted = (fake + 1) / 2
-                real_adjusted = (SELECTED_REAL + 1) / 2
-                if opt.sim_loss_one_image:
-                    real_adjusted = (real_and_extra[0][None] + 1) / 2
-                assert fake_adjusted.shape == real_adjusted.shape
-                if opt.harmonic_ssim:
-                    ssim_results = sim_loss(fake_adjusted.expand((total_samps,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)
-                    ssim_loss = harmonic_mean(ssim_results)
-                else:
-                    ssim_loss = sim_loss(fake_adjusted, real_adjusted)
-                ssim_loss = opt.sim_alpha * ssim_loss
+            if not opt.reconLossOnly:
+                output = netD(input_d_fake)
+                #D_fake_map = output.detach()
+                errG = -output.mean()
+                
                 if not opt.update_in_one_go:
-                    ssim_loss.backward(retain_graph=True)
+                    errG.backward(retain_graph=True)
+                
+                should_compute_sim = (opt.sim_alpha != 0 and 
+                                    ((opt.sim_boundary_type == "start" and len(Gs) >= opt.sim_boundary) or 
+                                    (opt.sim_boundary_type == "end" and len(Gs) <= opt.sim_boundary)))
+
+                ssim_loss = 0
+
+                if should_compute_sim:
+                    fake_adjusted = (fake + 1) / 2
+                    real_adjusted = (SELECTED_REAL + 1) / 2
+                    if opt.sim_loss_one_image:
+                        real_adjusted = (real_and_extra[0][None] + 1) / 2
+                    assert fake_adjusted.shape == real_adjusted.shape
+                    if opt.harmonic_ssim:
+                        ssim_results = sim_loss(fake_adjusted.expand((total_samps,)+fake_adjusted.shape[1:]), (real_and_extra + 1) / 2)
+                        ssim_loss = harmonic_mean(ssim_results)
+                    else:
+                        ssim_loss = sim_loss(fake_adjusted, real_adjusted)
+                    ssim_loss = opt.sim_alpha * ssim_loss
+                    if not opt.update_in_one_go:
+                        ssim_loss.backward(retain_graph=True)
+            else:
+                errG = 0
+                ssim_loss = 0
 
             rec_loss = 0
 
@@ -386,8 +390,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             optimizerG.step()
 
-        errG2plot.append(errG.detach()+rec_loss.detach())
-        z_opt2plot.append(rec_loss.detach())
+        if not opt.reconLossOnly:
+            errG2plot.append(errG.detach()+rec_loss.detach())
+            z_opt2plot.append(rec_loss.detach())
 
         if epoch % 25 == 0 or epoch == (niter-1):
             print('scale %d:[%d/%d]; d_accuracy: [%.3f]' % (len(Gs), epoch, niter, num_correct/total_count))
