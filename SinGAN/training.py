@@ -520,7 +520,7 @@ def init_models(opt):
     print(netG)
 
     #discriminator initialization:
-    netD = models.WDiscriminator(opt).to(opt.device)
+    netD = models.WDiscriminator(opt).to(opt.device) if not opt.unetD else models.Unet(opt, False).to(opt.device)
     netD.apply(models.weights_init)
     if opt.netD != '':
         netD.load_state_dict(torch.load(opt.netD))

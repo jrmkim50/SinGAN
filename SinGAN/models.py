@@ -96,6 +96,8 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         x = self.head(x)
         x = self.body(x)
         x = self.tail(x)
+        # QUICK TEST 11/18: do we need summing?
+        # return x # no sum. turning off this test (only used no sum in one experiment)
         ind = int((y.shape[2]-x.shape[2])/2)
         y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
         summed = x + y
@@ -140,23 +142,25 @@ class Unet(nn.Module):
     def __init__(self, opt, is_generator):
         super().__init__()
         # input size == output size
+        self.is_generator = is_generator
         N = opt.nfc
-        self.e1 = encoderBlock(opt.nc_im, N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
-        self.e2 = encoderBlock(N, 2*N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
-        self.e3 = encoderBlock(2*N, 2*N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
+        padd = opt.padd_size if is_generator else 1
+        self.e1 = encoderBlock(opt.nc_im, N, opt.ker_size, padd, 1, opt, generator=is_generator)
+        self.e2 = encoderBlock(N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
+        self.e3 = encoderBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
         
-        self.b = ConvBlock(2*N, 2*N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
+        self.b = ConvBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
 
-        self.d1 = decoderBlock(2*N, 2*N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
-        self.d2 = decoderBlock(2*N, 2*N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
-        self.d3 = decoderBlock(2*N, N, opt.ker_size, opt.padd_size, 1, opt, generator=is_generator)
+        self.d1 = decoderBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
+        self.d2 = decoderBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
+        self.d3 = decoderBlock(2*N, N, opt.ker_size, padd, 1, opt, generator=is_generator)
 
         self.outputs = nn.Sequential(
             nn.Conv3d(N, opt.nc_im, kernel_size=1, padding=0),
             nn.Tanh()
-        )
+        ) if is_generator else nn.Conv3d(N, 1, kernel_size=1, padding=0)
     
-    def forward(self, x, y):
+    def forward(self, x, y = None):
         
         s1, p1 = self.e1(x)
         s2, p2 = self.e2(p1)
@@ -169,7 +173,9 @@ class Unet(nn.Module):
         d3 = self.d3(d2, s1)
 
         x = self.outputs(d3)
-        # TODO: does this summing help??
+        # TODO 11/18: check whether this summing helps?? Right now, keeping the summing
+        if not self.is_generator:
+            return x
         ind = int((y.shape[2]-x.shape[2])/2)
         y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
         summed = x + y
