@@ -149,10 +149,10 @@ class Unet(nn.Module):
         self.e2 = encoderBlock(N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
         self.e3 = encoderBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
         
-        self.b = ConvBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
+        self.b = ConvBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator,use_attn=opt.use_attention_g if is_generator else opt.use_attention_d)
 
         self.d1 = decoderBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
-        self.d2 = decoderBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
+        self.d2 = decoderBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator,use_attn=opt.use_attention_end_g if is_generator else opt.use_attention_end_d)
         self.d3 = decoderBlock(2*N, N, opt.ker_size, padd, 1, opt, generator=is_generator)
 
         self.outputs = nn.Sequential(
