@@ -49,12 +49,13 @@ class WDiscriminator(nn.Module):
     def __init__(self, opt):
         super(WDiscriminator, self).__init__()
         self.is_cuda = torch.cuda.is_available()
-        N = int(opt.nfc)
+        D_NFC = opt.nfc if not opt.doubleDFilters else 2*opt.nfc
+        N = int(D_NFC)
         self.head = ConvBlock(opt.nc_im,N,opt.ker_size_d,opt.padd_size,1,opt, generator=False)
         self.body = nn.Sequential()
         num_layer = opt.num_layer_d if opt.num_layer_d else opt.num_layer
         for i in range(num_layer-2):
-            N = int(opt.nfc/pow(2,(i+1)))
+            N = int(D_NFC/pow(2,(i+1)))
             if i == (num_layer - 2) // 2:
                 block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,opt.padd_size,1,opt,use_attn=opt.use_attention_d, generator=False)
             elif i == (num_layer - 2 - 1):
@@ -144,7 +145,7 @@ class Unet(nn.Module):
         # input size == output size
         self.is_generator = is_generator
         N = opt.nfc
-        padd = opt.padd_size if is_generator else 1
+        padd = opt.ker_size // 2
         self.e1 = encoderBlock(opt.nc_im, N, opt.ker_size, padd, 1, opt, generator=is_generator)
         self.e2 = encoderBlock(N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
         self.e3 = encoderBlock(2*N, 2*N, opt.ker_size, padd, 1, opt, generator=is_generator)
