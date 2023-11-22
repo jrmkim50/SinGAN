@@ -289,15 +289,15 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             noise_3D = functions.generate_noise3D([opt.nc_z,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
             noise_3D = m_noise3D(noise_3D)
 
-        SELECTED_IDX = random.choice(range(total_samps))
-        SELECTED_REAL = real_and_extra[SELECTED_IDX][None]
-
         ############################
         # (1) Update D network: maximize D(x) + D(G(z))
         ###########################
         for j in range(opt.Dsteps):
             # train with real
             netD.zero_grad()
+
+            SELECTED_IDX = random.choice(range(total_samps))
+            SELECTED_REAL = real_and_extra[SELECTED_IDX][None]
 
             # train with fake
             if not ((j == 0) & (epoch == 0)):
@@ -349,9 +349,12 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         ############################
         # (2) Update G network: maximize D(G(z))
         ###########################
-
         for j in range(opt.Gsteps):
             netG.zero_grad()
+
+            SELECTED_IDX = random.choice(range(total_samps))
+            SELECTED_REAL = real_and_extra[SELECTED_IDX][None]
+            
             if not opt.reconLossOnly:
                 output = netD(input_d_fake)
                 #D_fake_map = output.detach()
@@ -392,7 +395,12 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 Z_opt = opt.noise_amp*z_opt3D+z_prev3D
                 assert Z_opt.shape[:2] == real_and_extra.shape[:2], f"{Z_opt.shape} versus {real_and_extra.shape}"
                 assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
-                if not opt.update_in_one_go:
+                if opt.reconBS1:
+                    fake_recon = netG(Z_opt.detach()[SELECTED_IDX][None],z_prev3D[SELECTED_IDX][None])
+                    rec_loss = alpha*loss(fake_recon, SELECTED_REAL)
+                    if not opt.update_in_one_go:
+                        rec_loss.backward(retain_graph=True)
+                elif not opt.update_in_one_go:
                     for idx in range(total_samps):
                         fake_recon = netG(Z_opt.detach()[idx][None],z_prev3D[idx][None])
                         rec_loss = (alpha / total_samps)*loss(fake_recon, real_and_extra[idx][None])
