@@ -116,7 +116,7 @@ class Embeddings(nn.Module):
         down_factor = config.down_factor
         patch_size = _triple(config.patches["size"])
         n_patches = int((img_size[0]/2**down_factor// patch_size[0]) * (img_size[1]/2**down_factor// patch_size[1]) * (img_size[2]/2**down_factor// patch_size[2]))
-        self.hybrid_model = CNNEncoder(config, n_channels=2)
+        self.hybrid_model = CNNEncoder(config, n_channels=8)
         in_channels = config['encoder_channels'][-1]
         self.patch_embeddings = Conv3d(in_channels=in_channels,
                                        out_channels=config.hidden_size,
@@ -241,7 +241,8 @@ class DecoderBlock(nn.Module):
         self.up = nn.Upsample(scale_factor=2, mode='trilinear', align_corners=False)
 
     def forward(self, x, skip=None):
-        x = self.up(x)
+        if skip is not None and x.shape[2:] != skip.shape[2:]:
+            x = self.up(x)
         if skip is not None:
             x = torch.cat([x, skip], dim=1)
         x = self.conv1(x)
@@ -365,7 +366,7 @@ class Down(nn.Module):
         return self.maxpool_conv(x)
 
 class CNNEncoder(nn.Module):
-    def __init__(self, config, n_channels=2):
+    def __init__(self, config, n_channels=8):
         super(CNNEncoder, self).__init__()
         self.n_channels = n_channels
         decoder_channels = config.decoder_channels
@@ -409,23 +410,23 @@ class ViTVNet(nn.Module):
         self.spatial_trans = SpatialTransformer(img_size)
         self.config = config
         #self.integrate = VecInt(img_size, int_steps)
-    def forward(self, x):
-
+    def forward(self, x, y):
+        x = torch.cat([x, y], dim=1).to(x.device)
         source = x[:,0:1,:,:]
 
         x, attn_weights, features = self.transformer(x)  # (B, n_patch, hidden)
         x = self.decoder(x, features)
         flow = self.reg_head(x)
         #flow = self.integrate(flow)
-        out = self.spatial_trans(source, flow)
-        return out, flow
+        # out = self.spatial_trans(source, flow)
+        return flow
     
 import ml_collections
 
 def get_3DReg_config():
     config = ml_collections.ConfigDict()
-    config.patches = ml_collections.ConfigDict({'size': (8, 8, 8)})
-    config.patches.grid = (8, 8, 8)
+    config.patches = ml_collections.ConfigDict({'size': (4, 4, 4)})
+    config.patches.grid = (4, 4, 4)
     config.hidden_size = 252
     config.transformer = ml_collections.ConfigDict()
     config.transformer.mlp_dim = 3072
@@ -433,7 +434,7 @@ def get_3DReg_config():
     config.transformer.num_layers = 12
     config.transformer.attention_dropout_rate = 0.0
     config.transformer.dropout_rate = 0.1
-    config.patch_size = 8
+    config.patch_size = 4
 
     config.conv_first_channel = 512
     config.encoder_channels = (16, 32, 32)
@@ -441,6 +442,6 @@ def get_3DReg_config():
     config.down_num = 2
     config.decoder_channels = (96, 48, 32, 32, 16)
     config.skip_channels = (32, 32, 32, 32, 16)
-    config.n_dims = 3
+    config.n_dims = 4
     config.n_skip = 5
     return config

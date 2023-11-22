@@ -93,7 +93,7 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
         in_s = torch.full(reals[0].shape, 0, device=opt.device)
     images_cur = []
     for G,Z_opt,noise_amp in zip(Gs,Zs,NoiseAmp):
-        pad1 = int((opt.ker_size-1)*opt.num_layer)/2 if not opt.unetG else 0
+        pad1 = int((opt.ker_size-1)*opt.num_layer)/2 if (not opt.unetG and not opt.vitV) else 0
         m = nn.ConstantPad3d(int(pad1), 0)
         nzx = (Z_opt.shape[2]-pad1*2)*scale_v
         nzy = (Z_opt.shape[3]-pad1*2)*scale_h

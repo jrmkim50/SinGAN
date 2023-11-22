@@ -15,6 +15,7 @@ from SinGAN.perceptual_3D import MedicalNetLoss
 import random
 import nibabel as nib
 import numpy as np
+import SinGAN.vit_v_net as vitV
 
 def train(opt,Gs,Zs,reals,NoiseAmp):
 
@@ -57,7 +58,7 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
         #plt.imsave('%s/original.png' %  (opt.out_), functions.convert_image_np(real_), vmin=0, vmax=1)
         plt.imsave('%s/real_scale.png' %  (opt.outf), functions.convert_image_np3D(reals[scale_num], opt=opt), vmin=0, vmax=1)
 
-        D_curr,G_curr = init_models(opt)
+        D_curr,G_curr = init_models(opt, reals[scale_num].shape)
         if nfc_prev==opt.nfc:
             G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
@@ -156,8 +157,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     opt.nzy = real.shape[3]#+(opt.ker_size-1)*(opt.num_layer)
     opt.nzz = real.shape[4]#+(opt.ker_size-1)*(opt.num_layer)
     opt.receptive_field = opt.ker_size + ((opt.ker_size-1)*(opt.num_layer-1))*opt.stride
-    pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2) if not opt.unetG else 0
-    pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2) if not opt.unetG else 0
+    pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2) if (not opt.unetG and not opt.vitV) else 0
+    pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2) if (not opt.unetG and not opt.vitV) else 0
     m_noise3D = nn.ConstantPad3d(int(pad_noise), 0)
     m_image3D = nn.ConstantPad3d(int(pad_image), 0)
 
@@ -456,7 +457,7 @@ def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     if len(Gs) > 0:
         if mode == 'rand':
             count = 0
-            pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2) if not opt.unetG else 0
+            pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2) if (not opt.unetG and not opt.vitV) else 0
             if opt.mode == 'animation_train':
                 pad_noise = 0
             for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
@@ -539,10 +540,13 @@ def train_paint(opt,Gs,Zs,reals,NoiseAmp,centers,paint_inject_scale):
     return
 
 
-def init_models(opt):
+def init_models(opt, real_shape):
 
     #generator initialization:
-    netG = models.GeneratorConcatSkip2CleanAdd(opt).to(opt.device) if not opt.unetG else models.Unet(opt, True).to(opt.device)
+    if not opt.vitV:
+        netG = models.GeneratorConcatSkip2CleanAdd(opt).to(opt.device) if not opt.unetG else models.Unet(opt, True).to(opt.device)
+    else:
+        netG = vitV.ViTVNet(vitV.get_3DReg_config(), real_shape[2:]).to(opt.device)
     netG.apply(models.weights_init)
     if opt.netG != '':
         netG.load_state_dict(torch.load(opt.netG))
