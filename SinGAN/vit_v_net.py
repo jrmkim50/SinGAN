@@ -412,14 +412,14 @@ class ViTVNet(nn.Module):
         #self.integrate = VecInt(img_size, int_steps)
     def forward(self, x, y):
         x = torch.cat([x, y], dim=1).to(x.device)
-        source = x[:,0:1,:,:]
+        source = x[:,0:4,:,:]
 
         x, attn_weights, features = self.transformer(x)  # (B, n_patch, hidden)
         x = self.decoder(x, features)
         flow = self.reg_head(x)
         #flow = self.integrate(flow)
-        # out = self.spatial_trans(source, flow)
-        return flow
+        out = self.spatial_trans(source, flow)
+        return out
     
 import ml_collections
 
@@ -442,6 +442,6 @@ def get_3DReg_config():
     config.down_num = 2
     config.decoder_channels = (96, 48, 32, 32, 16)
     config.skip_channels = (32, 32, 32, 32, 16)
-    config.n_dims = 4
+    config.n_dims = 3
     config.n_skip = 5
     return config
