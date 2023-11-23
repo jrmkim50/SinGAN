@@ -86,7 +86,6 @@ def get_arguments():
     parser.add_argument('--reconLossOnly', action='store_true', help='train gen with recon loss only', default=0)
     parser.add_argument('--unetG', action='store_true', help='use unet for generator', default=0)
     parser.add_argument('--unetD', action='store_true', help='use unet for discrim', default=0)
-    parser.add_argument('--reconBS1', action='store_true', help='use bs 1 for recon', default=0)
     parser.add_argument('--doubleDFilters', action='store_true', help='use 2x filters for discrim', default=0)
     parser.add_argument('--vitV', action='store_true', help='use transformer for generator', default=0)
 

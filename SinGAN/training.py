@@ -396,12 +396,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 Z_opt = opt.noise_amp*z_opt3D+z_prev3D
                 assert Z_opt.shape[:2] == real_and_extra.shape[:2], f"{Z_opt.shape} versus {real_and_extra.shape}"
                 assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
-                if opt.reconBS1:
-                    fake_recon = netG(Z_opt.detach()[SELECTED_IDX][None],z_prev3D[SELECTED_IDX][None])
-                    rec_loss = alpha*loss(fake_recon, SELECTED_REAL)
-                    if not opt.update_in_one_go:
-                        rec_loss.backward(retain_graph=True)
-                elif not opt.update_in_one_go:
+                if not opt.update_in_one_go:
                     for idx in range(total_samps):
                         fake_recon = netG(Z_opt.detach()[idx][None],z_prev3D[idx][None])
                         rec_loss = (alpha / total_samps)*loss(fake_recon, real_and_extra[idx][None])
