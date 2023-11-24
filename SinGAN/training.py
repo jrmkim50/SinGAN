@@ -60,7 +60,10 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
 
         D_curr,G_curr = init_models(opt, reals[scale_num].shape)
         if nfc_prev==opt.nfc:
-            G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
+            if not opt.vitV or opt.min_size == real_.shape[2]:
+                print("loading gen")
+                G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
+            print("loading discrim")
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
 
         z_curr,in_s,in_s_z_opt,G_curr,D_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt)
@@ -538,8 +541,8 @@ def train_paint(opt,Gs,Zs,reals,NoiseAmp,centers,paint_inject_scale):
 def init_models(opt, real_shape):
 
     #generator initialization:
-    if not opt.vitV:
-        netG = models.GeneratorConcatSkip2CleanAdd(opt).to(opt.device) if not opt.unetG else models.Unet(opt, True).to(opt.device)
+    if not opt.vitV or real_shape[2] == 32: # use regular model for first stage of vitV
+        netG = models.GeneratorConcatSkip2CleanAdd(opt).to(opt.device) if (not opt.unetG and not opt.vitV) else models.Unet(opt, True).to(opt.device)
     else:
         netG = vitV.ViTVNet(vitV.get_3DReg_config(), real_shape[2:]).to(opt.device)
     netG.apply(models.weights_init)

@@ -411,7 +411,8 @@ class ViTVNet(nn.Module):
         self.config = config
         #self.integrate = VecInt(img_size, int_steps)
     def forward(self, x, y):
-        x = torch.cat([x, y], dim=1).to(x.device)
+        # x = torch.cat([x, y], dim=1).to(x.device)
+        x = torch.cat([y, x], dim=1).to(x.device)
         source = x[:,0:4,:,:]
 
         x, attn_weights, features = self.transformer(x)  # (B, n_patch, hidden)

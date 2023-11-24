@@ -306,6 +306,10 @@ def adjust_scales2image(real_,opt):
                 max([real_.shape[2], real_.shape[3], real_.shape[4]])
             ]) / max([real_.shape[2], real_.shape[3], real_.shape[4]]),opt.scale_factor_init))
     opt.stop_scale = opt.num_scales - scale2stop
+    if opt.vitV and opt.min_size == 32:
+        # TODO: DELETE
+        opt.stop_scale = 1
+        opt.scale_factor = .5
     return real
 
 def adjust_scales2image_SR(real_,opt):
