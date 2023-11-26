@@ -160,8 +160,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     opt.nzy = real.shape[3]#+(opt.ker_size-1)*(opt.num_layer)
     opt.nzz = real.shape[4]#+(opt.ker_size-1)*(opt.num_layer)
     opt.receptive_field = opt.ker_size + ((opt.ker_size-1)*(opt.num_layer-1))*opt.stride
-    pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2) if (not opt.unetG and not opt.vitV) else 0
-    pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2) if (not opt.unetG and not opt.vitV) else 0
+    pad_noise = int(((opt.ker_size - 1) * opt.num_layer) / 2) if (not opt.unetG and not opt.vitV and opt.padd_size == 0) else 0
+    pad_image = int(((opt.ker_size - 1) * opt.num_layer) / 2) if (not opt.unetG and not opt.vitV and opt.padd_size == 0) else 0
     m_noise3D = nn.ConstantPad3d(int(pad_noise), 0)
     m_image3D = nn.ConstantPad3d(int(pad_image), 0)
 
@@ -394,7 +394,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             rec_loss = 0
 
             if alpha!=0:
-                loss = nn.MSELoss()
+                loss = nn.L1Loss()
                 assert z_opt3D.shape == z_prev3D.shape
                 Z_opt = opt.noise_amp*z_opt3D+z_prev3D
                 assert Z_opt.shape[:2] == real_and_extra.shape[:2], f"{Z_opt.shape} versus {real_and_extra.shape}"
@@ -455,7 +455,7 @@ def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     if len(Gs) > 0:
         if mode == 'rand':
             count = 0
-            pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2) if (not opt.unetG and not opt.vitV) else 0
+            pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2) if (not opt.unetG and not opt.vitV and opt.padd_size == 0) else 0
             if opt.mode == 'animation_train':
                 pad_noise = 0
             for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):

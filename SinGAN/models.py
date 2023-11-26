@@ -63,11 +63,17 @@ class WDiscriminator(nn.Module):
             else:
                 block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,opt.padd_size,1,opt, generator=False)
             self.body.add_module('block%d'%(i+1),block)
+        self.skip = None if not opt.skipD else ConvBlock(max(N,opt.min_nfc)+int(D_NFC), max(N,opt.min_nfc),opt.ker_size_d,opt.padd_size,1,opt, generator=False)
         self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size_d,stride=1,padding=opt.padd_size)
 
     def forward(self,x):
         x = self.head(x)
         feature = self.body(x)
+        if self.skip:
+            ind = int((x.shape[2]-feature.shape[2])/2)
+            x = x[:,:,ind:(x.shape[2]-ind),ind:(x.shape[3]-ind),ind:(x.shape[4]-ind)]
+            feature = torch.cat([x, feature], dim=1)
+            feature = self.skip(feature)
         x = self.tail(feature)
         return x
 
@@ -88,17 +94,22 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
             else:
                 block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt)
             self.body.add_module('block%d'%(i+1),block)
+        # pad the skip convolution so we don't worry about shapes
+        self.skip = None if not opt.skipG else ConvBlock(max(N,opt.min_nfc)+int(opt.nfc), max(N,opt.min_nfc),opt.ker_size,opt.ker_size//2,1,opt)
         self.tail = nn.Sequential(
             nn.Conv3d(max(N,opt.min_nfc),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
             nn.Tanh()
         )
         
     def forward(self,x,y):
-        x = self.head(x)
-        x = self.body(x)
+        head = self.head(x)
+        x = self.body(head)
+        if self.skip:
+            ind = int((head.shape[2]-x.shape[2])/2)
+            head = head[:,:,ind:(head.shape[2]-ind),ind:(head.shape[3]-ind),ind:(head.shape[4]-ind)]
+            x = torch.cat([head, x], dim=1)
+            x = self.skip(x)
         x = self.tail(x)
-        # QUICK TEST 11/18: do we need summing?
-        # return x # no sum. turning off this test (only used no sum in one experiment)
         ind = int((y.shape[2]-x.shape[2])/2)
         y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
         summed = x + y

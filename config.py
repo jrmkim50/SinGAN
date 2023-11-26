@@ -88,6 +88,8 @@ def get_arguments():
     parser.add_argument('--unetD', action='store_true', help='use unet for discrim', default=0)
     parser.add_argument('--doubleDFilters', action='store_true', help='use 2x filters for discrim', default=0)
     parser.add_argument('--vitV', action='store_true', help='use transformer for generator', default=0)
+    parser.add_argument('--skipD', action='store_true', help='use skip conn for original discriminator', default=0)
+    parser.add_argument('--skipG', action='store_true', help='use skip conn for original generator', default=0)
 
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK
