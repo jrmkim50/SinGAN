@@ -51,20 +51,21 @@ class WDiscriminator(nn.Module):
         self.is_cuda = torch.cuda.is_available()
         D_NFC = opt.nfc if not opt.doubleDFilters else 2*opt.nfc
         N = int(D_NFC)
-        self.head = ConvBlock(opt.nc_im,N,opt.ker_size_d,opt.padd_size,1,opt, generator=False)
+        paddD = 0 if opt.noPadD else opt.padd_size
+        self.head = ConvBlock(opt.nc_im,N,opt.ker_size_d,paddD,1,opt, generator=False)
         self.body = nn.Sequential()
         num_layer = opt.num_layer_d if opt.num_layer_d else opt.num_layer
         for i in range(num_layer-2):
             N = int(D_NFC/pow(2,(i+1)))
             if i == (num_layer - 2) // 2:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,opt.padd_size,1,opt,use_attn=opt.use_attention_d, generator=False)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt,use_attn=opt.use_attention_d, generator=False)
             elif i == (num_layer - 2 - 1):
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,opt.padd_size,1,opt,use_attn=opt.use_attention_end_d, generator=False)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt,use_attn=opt.use_attention_end_d, generator=False)
             else:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,opt.padd_size,1,opt, generator=False)
+                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt, generator=False)
             self.body.add_module('block%d'%(i+1),block)
-        self.skip = None if not opt.skipD else ConvBlock(max(N,opt.min_nfc)+int(D_NFC), max(N,opt.min_nfc),opt.ker_size_d,opt.padd_size,1,opt, generator=False)
-        self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size_d,stride=1,padding=opt.padd_size)
+        self.skip = None if not opt.skipD else ConvBlock(max(N,opt.min_nfc)+int(D_NFC), max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt, generator=False)
+        self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size_d,stride=1,padding=paddD)
 
     def forward(self,x):
         x = self.head(x)
@@ -82,22 +83,24 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
     def __init__(self, opt):
         super(GeneratorConcatSkip2CleanAdd, self).__init__()
         self.is_cuda = torch.cuda.is_available()
-        N = opt.nfc
+        G_NFC = 2*opt.nfc if opt.doubleGFilters else opt.nfc
+        G_MIN_NFC = 2*opt.min_nfc if opt.doubleGFilters else opt.min_nfc
+        N = int(G_NFC)
         self.head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt) #GenConvTransBlock(opt.nc_z,N,opt.ker_size,opt.padd_size,opt.stride)
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
-            N = int(opt.nfc/pow(2,(i+1)))
+            N = int(G_NFC/pow(2,(i+1)))
             if i == (opt.num_layer - 2) // 2:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_g)
+                block = ConvBlock(max(2*N,G_MIN_NFC),max(N,G_MIN_NFC),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_g)
             elif i == (opt.num_layer - 2 - 1):
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_g)
+                block = ConvBlock(max(2*N,G_MIN_NFC),max(N,G_MIN_NFC),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_g)
             else:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size,opt.padd_size,1,opt)
+                block = ConvBlock(max(2*N,G_MIN_NFC),max(N,G_MIN_NFC),opt.ker_size,opt.padd_size,1,opt)
             self.body.add_module('block%d'%(i+1),block)
         # pad the skip convolution so we don't worry about shapes
-        self.skip = None if not opt.skipG else ConvBlock(max(N,opt.min_nfc)+int(opt.nfc), max(N,opt.min_nfc),opt.ker_size,opt.ker_size//2,1,opt)
+        self.skip = None if not opt.skipG else ConvBlock(max(N,G_MIN_NFC)+int(G_NFC), max(N,G_MIN_NFC),opt.ker_size,opt.ker_size//2,1,opt)
         self.tail = nn.Sequential(
-            nn.Conv3d(max(N,opt.min_nfc),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
+            nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
             nn.Tanh()
         )
         
