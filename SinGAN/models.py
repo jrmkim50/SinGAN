@@ -24,7 +24,7 @@ class ConvBlock(nn.Sequential):
         else:    
             self.add_module('conv',nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
         if opt.groupnorm:
-            self.add_module('norm',nn.GroupNorm(min(32, out_channel // 2), out_channel))
+            self.add_module('norm',nn.GroupNorm(8, out_channel))
         else:
             self.add_module('norm', nn.BatchNorm3d(out_channel))
         if not opt.prelu:
@@ -55,17 +55,18 @@ class WDiscriminator(nn.Module):
         D_NFC = opt.nfc if not opt.doubleDFilters else 2*opt.nfc
         N = int(D_NFC)
         paddD = 0 if opt.noPadD else opt.padd_size
-        self.head = ConvBlock(opt.nc_im,N,opt.ker_size_d,paddD,1,opt, generator=False)
+        convModule = ConvBlock if not opt.resnet else ConvRes
+        self.head = convModule(opt.nc_im,N,opt.ker_size_d,paddD,1,opt, generator=False)
         self.body = nn.Sequential()
         num_layer = opt.num_layer_d if opt.num_layer_d else opt.num_layer
         for i in range(num_layer-2):
             N = int(D_NFC/pow(2,(i+1)))
+            use_attn = False
             if i == (num_layer - 2) // 2:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt,use_attn=opt.use_attention_d, generator=False)
+                use_attn = opt.use_attention_d
             elif i == (num_layer - 2 - 1):
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt,use_attn=opt.use_attention_end_d, generator=False)
-            else:
-                block = ConvBlock(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt, generator=False)
+                use_attn = opt.use_attention_end_d
+            block = convModule(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt,use_attn=use_attn, generator=False)
             self.body.add_module('block%d'%(i+1),block)
         self.skip = None if not opt.skipD else ConvBlock(max(N,opt.min_nfc)+int(D_NFC), max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt, generator=False)
         self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size_d,stride=1,padding=paddD)
@@ -89,16 +90,17 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         G_NFC = 2*opt.nfc if opt.doubleGFilters else opt.nfc
         G_MIN_NFC = 2*opt.min_nfc if opt.doubleGFilters else opt.min_nfc
         N = int(G_NFC)
-        self.head = ConvBlock(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt) #GenConvTransBlock(opt.nc_z,N,opt.ker_size,opt.padd_size,opt.stride)
+        convModule = ConvBlock if not opt.resnet else ConvRes
+        self.head = convModule(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt)
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
             N = int(G_NFC/pow(2,(i+1)))
+            use_attn = False
             if i == (opt.num_layer - 2) // 2:
-                block = ConvBlock(max(2*N,G_MIN_NFC),max(N,G_MIN_NFC),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_g)
+                use_attn = opt.use_attention_g
             elif i == (opt.num_layer - 2 - 1):
-                block = ConvBlock(max(2*N,G_MIN_NFC),max(N,G_MIN_NFC),opt.ker_size,opt.padd_size,1,opt,use_attn=opt.use_attention_end_g)
-            else:
-                block = ConvBlock(max(2*N,G_MIN_NFC),max(N,G_MIN_NFC),opt.ker_size,opt.padd_size,1,opt)
+                use_attn = opt.use_attention_end_g
+            block = convModule(max(2*N,G_MIN_NFC),max(N,G_MIN_NFC),opt.ker_size,opt.padd_size,1,opt, use_attn=use_attn)
             self.body.add_module('block%d'%(i+1),block)
         # pad the skip convolution so we don't worry about shapes
         self.skip = None if not opt.skipG else ConvBlock(max(N,G_MIN_NFC)+int(G_NFC), max(N,G_MIN_NFC),opt.ker_size,opt.ker_size//2,1,opt)
@@ -199,4 +201,98 @@ class Unet(nn.Module):
         summed = x + y
         return summed
 
-        
+class ConvRes(nn.Module):
+    def __init__(self, in_channel, out_channel, ker_size, padd, stride, opt, use_attn=False, generator=True):
+        super().__init__()
+        self.conv = ConvBlock(in_channel, out_channel, ker_size, padd, stride, opt, use_attn, generator)
+        self.res = ResBlock(out_channel, ker_size)
+    def forward(self, x):
+        return self.res(self.conv(x))
+
+class ResBlock(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        kernel_size: int = 3,
+    ) -> None:
+        super().__init__()
+        self.norm1 = nn.GroupNorm(8, in_channels)
+        self.norm2 = nn.GroupNorm(8, in_channels)
+        self.act = nn.ReLU(inplace=True)
+        self.conv1 = Convolution(
+            in_channels=in_channels, out_channels=in_channels, kernel_size=kernel_size, padding=kernel_size//2, bias=False
+        )
+        self.conv2 = Convolution(
+            in_channels=in_channels, out_channels=in_channels, kernel_size=kernel_size, padding=kernel_size//2, bias=False
+        )
+
+    def forward(self, x):
+        identity = x
+
+        x = self.norm1(x)
+        x = self.act(x)
+        x = self.conv1(x)
+
+        x = self.norm2(x)
+        x = self.act(x)
+        x = self.conv2(x)
+
+        x += identity
+
+        return x
+
+class Convolution(nn.Module):
+    # a hack to align with monai
+    def __init__(self, in_channels, out_channels, kernel_size, padding, bias, stride=1):
+        super(Convolution, self).__init__()
+        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size, padding=padding, bias=bias, stride=stride)
+
+    def forward(self, x):
+        return self.conv(x)
+
+class FinetuneNet(nn.Module):
+
+    def __init__(self, opt):
+        super(FinetuneNet, self).__init__()
+        freezeOut = 32
+        self.head = Convolution(opt.nc_im, 32, kernel_size=3, padding=1, bias=False)
+
+        # self.down_layers is initialized by the pretrained model
+        self.down_layers = nn.ModuleList([nn.Sequential(nn.Identity(), ResBlock(32, 3))])
+        assert opt.pretrainD <= 2
+        if opt.pretrainD == 2:
+            self.down_layers.append(nn.Sequential(Convolution(32, 64, 3, 1, False, stride=2), ResBlock(64), ResBlock(64)))
+            freezeOut = 64
+
+        D_NFC = opt.nfc if not opt.doubleDFilters else 2*opt.nfc
+        N = int(D_NFC)
+        paddD = 0 if opt.noPadD else opt.padd_size
+        convModule = ConvBlock if not opt.resnet else ConvRes
+        self.body = nn.Sequential()
+        num_layer = opt.num_layer_d if opt.num_layer_d else opt.num_layer
+        for i in range(num_layer-opt.pretrainD-2):
+            N = int(D_NFC/pow(2,(i+1)))
+            use_attn = False
+            if i == (num_layer - 2) // 2:
+                use_attn = opt.use_attention_d
+            elif i == (num_layer - 2 - 1):
+                use_attn = opt.use_attention_end_d
+            block = convModule(max(2*N,opt.min_nfc) if i > 0 else freezeOut,max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt, use_attn=use_attn, generator=False)
+            self.body.add_module('block%d'%(i+1),block)
+        # skip takes +32 for in_channels because the head outputs 32, regardless of N
+        self.skip = None if not opt.skipD else ConvBlock(max(N,opt.min_nfc)+32, max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt, generator=False)
+        self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size_d,stride=1,padding=paddD)
+
+    def forward(self,x):
+        x = self.head(x)
+        feature = self.down_layers[0](x)
+        if len(self.down_layers) == 2:
+            feature = self.down_layers[1](feature)
+        feature = self.body(feature)
+        if self.skip:
+            ind = int((x.shape[2]-feature.shape[2])/2)
+            x = x[:,:,ind:(x.shape[2]-ind),ind:(x.shape[3]-ind),ind:(x.shape[4]-ind)]
+            feature = torch.cat([x, feature], dim=1)
+            feature = self.skip(feature)
+        x = self.tail(feature)
+        return x

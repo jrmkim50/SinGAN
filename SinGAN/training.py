@@ -555,8 +555,14 @@ def init_models(opt, real_shape):
     print(netG)
 
     #discriminator initialization:
-    netD = models.WDiscriminator(opt).to(opt.device) if not opt.unetD else models.Unet(opt, False).to(opt.device)
-    netD.apply(models.weights_init)
+    if opt.pretrainD:
+        netD = models.FinetuneNet(opt).to(opt.device)
+        netD.apply(models.weights_init)
+        netD.load_state_dict(torch.load('monai_wholebody_ct/models/model.pth'), strict=False)
+        netD.down_layers.requires_grad_(False) # freeze the pretrained layer
+    else:
+        netD = models.WDiscriminator(opt).to(opt.device) if not opt.unetD else models.Unet(opt, False).to(opt.device)
+        netD.apply(models.weights_init)
     if opt.netD != '':
         netD.load_state_dict(torch.load(opt.netD))
     print(netD)
