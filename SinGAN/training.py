@@ -46,6 +46,10 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
     while scale_num<opt.stop_scale+1:
         opt.nfc = min(opt.nfc_init * pow(2, math.floor(scale_num / 4)), 128)
         opt.min_nfc = min(opt.min_nfc_init * pow(2, math.floor(scale_num / 4)), 128)
+        if scale_num > 0 and opt.growD and scale_num % opt.growD == 0:
+            # 21, 25, 30, 36, 44, 53, 64
+            # growD=3 goes for 4: 9, 5: 11, 6: 13. growD=4 explores 4 and 5.
+            opt.num_layer_d += 1
 
         opt.out_ = functions.generate_dir2save(opt)
         opt.outf = '%s/%d' % (opt.out_,scale_num)
@@ -64,7 +68,7 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
                 print("loading gen")
                 G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             print("loading discrim")
-            D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)))
+            D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)), strict=False)
 
         z_curr,in_s,in_s_z_opt,G_curr,D_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt)
 

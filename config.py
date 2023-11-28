@@ -93,6 +93,9 @@ def get_arguments():
     parser.add_argument('--skipG', action='store_true', help='use skip conn for original generator', default=0)
     parser.add_argument('--noPadD', action='store_true', help='no padding in D', default=0)
 
+    parser.add_argument('--growD', type=int, help='incrementally add D layers', default=None)
+    parser.add_argument('--reluG', action='store_true', help='use relu in G', default=0)
+
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK
     
