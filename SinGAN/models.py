@@ -205,7 +205,7 @@ class ConvRes(nn.Module):
     def __init__(self, in_channel, out_channel, ker_size, padd, stride, opt, use_attn=False, generator=True):
         super().__init__()
         self.conv = ConvBlock(in_channel, out_channel, ker_size, padd, stride, opt, use_attn, generator)
-        self.res = ResBlock(out_channel, ker_size)
+        self.res = ResBlock(out_channel, ker_size, use_groupnorm=False)
     def forward(self, x):
         return self.res(self.conv(x))
 
@@ -214,10 +214,11 @@ class ResBlock(nn.Module):
         self,
         in_channels: int,
         kernel_size: int = 3,
+        use_groupnorm = True,
     ) -> None:
         super().__init__()
-        self.norm1 = nn.GroupNorm(8, in_channels)
-        self.norm2 = nn.GroupNorm(8, in_channels)
+        self.norm1 = nn.GroupNorm(8, in_channels) if use_groupnorm else nn.BatchNorm3d(in_channels)
+        self.norm2 = nn.GroupNorm(8, in_channels) if use_groupnorm else nn.BatchNorm3d(in_channels)
         self.act = nn.ReLU(inplace=True)
         self.conv1 = Convolution(
             in_channels=in_channels, out_channels=in_channels, kernel_size=kernel_size, padding=kernel_size//2, bias=False
@@ -255,9 +256,10 @@ class FinetuneNet(nn.Module):
     def __init__(self, opt):
         super(FinetuneNet, self).__init__()
         freezeOut = 32
-        self.head = Convolution(opt.nc_im, 32, kernel_size=3, padding=1, bias=False)
+        self.head = ConvBlock(opt.nc_im, 1, 3, 1, 1, opt, generator=False)
 
-        # self.down_layers is initialized by the pretrained model
+        # self.down_layers and self.convInit are initialized by the pretrained model
+        self.convInit = Convolution(1, 32, 3, 1, False)
         self.down_layers = nn.ModuleList([nn.Sequential(nn.Identity(), ResBlock(32, 3))])
         assert opt.pretrainD <= 2
         if opt.pretrainD == 2:
@@ -279,13 +281,14 @@ class FinetuneNet(nn.Module):
                 use_attn = opt.use_attention_end_d
             block = convModule(max(2*N,opt.min_nfc) if i > 0 else freezeOut,max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt, use_attn=use_attn, generator=False)
             self.body.add_module('block%d'%(i+1),block)
-        # skip takes +32 for in_channels because the head outputs 32, regardless of N
-        self.skip = None if not opt.skipD else ConvBlock(max(N,opt.min_nfc)+32, max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt, generator=False)
+        # skip takes +1 for in_channels because the head outputs 1
+        self.skip = None if not opt.skipD else ConvBlock(max(N,opt.min_nfc)+1, max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt, generator=False)
         self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size_d,stride=1,padding=paddD)
 
     def forward(self,x):
         x = self.head(x)
-        feature = self.down_layers[0](x)
+        convInit = self.convInit(x)
+        feature = self.down_layers[0](convInit)
         if len(self.down_layers) == 2:
             feature = self.down_layers[1](feature)
         feature = self.body(feature)
