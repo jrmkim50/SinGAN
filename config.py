@@ -99,6 +99,9 @@ def get_arguments():
     parser.add_argument('--pretrainD', type=int, help='use monai for D head', default=0) # num layers to use
     parser.add_argument('--extraRecon', type=int, help='extra steps for recon', default=0)
 
+    parser.add_argument('--pretrainG', type=int, help='using pretrained model from dec 20, 2023', default=0) # option 1 for initializing from model at level 0, 2 for model at each level
+    # NOTE: do not delete scale_factor=0.850,num_layers=6,sim_alpha=0.300,sim_boundary=3,sim_boundary_type=start,use_attn_g=1,use_attn_end_g=0,use_attn_d=1,use_attn_end_d=0,nfc=32,min_size=20,few_gan=5,num_layer_d=4,split,warm_d,update_in_one_go,alpha=50,reconLoss,niter=3000 model
+
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK
     

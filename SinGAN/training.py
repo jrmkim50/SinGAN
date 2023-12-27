@@ -62,9 +62,9 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
         #plt.imsave('%s/original.png' %  (opt.out_), functions.convert_image_np(real_), vmin=0, vmax=1)
         plt.imsave('%s/real_scale.png' %  (opt.outf), functions.convert_image_np3D(reals[scale_num], opt=opt), vmin=0, vmax=1)
 
-        D_curr,G_curr = init_models(opt, reals[scale_num].shape)
+        D_curr,G_curr = init_models(opt, reals[scale_num].shape, scale_num)
         if nfc_prev==opt.nfc:
-            if not opt.vitV or opt.min_size == real_.shape[2]:
+            if (not opt.vitV or opt.min_size == real_.shape[2]) and opt.pretrainG != 2:
                 print("loading gen")
                 G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             print("loading discrim")
@@ -560,7 +560,7 @@ def train_paint(opt,Gs,Zs,reals,NoiseAmp,centers,paint_inject_scale):
     return
 
 
-def init_models(opt, real_shape):
+def init_models(opt, real_shape, scale_num):
 
     #generator initialization:
     if not opt.vitV or real_shape[2] == 32: # use regular model for first stage of vitV
@@ -570,6 +570,10 @@ def init_models(opt, real_shape):
     netG.apply(models.weights_init)
     if opt.netG != '':
         netG.load_state_dict(torch.load(opt.netG))
+    if opt.pretrainG == 1 and scale_num == 0:
+        netG.load_state_dict(torch.load("TrainedModels/rat_two_channel_split.ni/scale_factor=0.850,num_layers=6,sim_alpha=0.300,sim_boundary=3,sim_boundary_type=start,use_attn_g=1,use_attn_end_g=0,use_attn_d=1,use_attn_end_d=0,nfc=32,min_size=20,few_gan=5,num_layer_d=4,split,warm_d,update_in_one_go,alpha=50,reconLoss,niter=3000/0/netG.pth", map_location=torch.device('cpu')))
+    elif opt.pretrainG == 2:
+        netG.load_state_dict(torch.load(f"TrainedModels/rat_two_channel_split.ni/scale_factor=0.850,num_layers=6,sim_alpha=0.300,sim_boundary=3,sim_boundary_type=start,use_attn_g=1,use_attn_end_g=0,use_attn_d=1,use_attn_end_d=0,nfc=32,min_size=20,few_gan=5,num_layer_d=4,split,warm_d,update_in_one_go,alpha=50,reconLoss,niter=3000/{scale_num}/netG.pth", map_location=torch.device('cpu')))
     print(netG)
 
     #discriminator initialization:
