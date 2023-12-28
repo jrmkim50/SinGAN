@@ -26,7 +26,10 @@ class ConvBlock(nn.Sequential):
         if opt.groupnorm:
             self.add_module('norm',nn.GroupNorm(8, out_channel))
         else:
-            self.add_module('norm', nn.BatchNorm3d(out_channel))
+            if opt.instanceNormD and not generator:
+                self.add_module('norm', nn.InstanceNorm3d(out_channel, affine=True))
+            else:
+                self.add_module('norm', nn.BatchNorm3d(out_channel))
         if not opt.prelu:
             if generator and opt.reluG:
                 self.add_module('Relu',nn.ReLU(inplace=True))
