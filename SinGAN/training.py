@@ -175,8 +175,16 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     z_opt3D = torch.full(fixed_noise3D.shape, 0, device=opt.device)
     z_opt3D = m_noise3D(z_opt3D)
 
+    dParamsToUpdate = netD.parameters()
+    if opt.pretrainD:
+        dParamsToUpdate = []
+        for name, param in netD.named_parameters():
+            if param.requires_grad:
+                dParamsToUpdate.append(param)
+                print(name)
+
     # setup optimizer
-    optimizerD = optim.Adam(netD.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
+    optimizerD = optim.Adam(dParamsToUpdate, lr=opt.lr_d, betas=(opt.beta1, 0.999))
     optimizerG = optim.Adam(netG.parameters(), lr=opt.lr_g, betas=(opt.beta1, 0.999))
 
     # 2: Trying LR warmup
