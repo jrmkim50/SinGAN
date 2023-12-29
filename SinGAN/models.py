@@ -25,6 +25,8 @@ class ConvBlock(nn.Sequential):
             self.add_module('conv',nn.Conv3d(in_channel ,out_channel,kernel_size=ker_size,stride=stride,padding=padd))
         if opt.groupnorm:
             self.add_module('norm',nn.GroupNorm(8, out_channel))
+        elif opt.instanceNorm:
+            self.add_module('norm', nn.InstanceNorm3d(out_channel, affine=True))
         else:
             if opt.instanceNormD and not generator:
                 self.add_module('norm', nn.InstanceNorm3d(out_channel, affine=True))
