@@ -103,6 +103,7 @@ def get_arguments():
     # NOTE: do not delete scale_factor=0.850,num_layers=6,sim_alpha=0.300,sim_boundary=3,sim_boundary_type=start,use_attn_g=1,use_attn_end_g=0,use_attn_d=1,use_attn_end_d=0,nfc=32,min_size=20,few_gan=5,num_layer_d=4,split,warm_d,update_in_one_go,alpha=50,reconLoss,niter=3000 model
     parser.add_argument('--instanceNormD', action='store_true', help='use instanceNorm in D', default=0)
     parser.add_argument('--instanceNorm', action='store_true', help='use instanceNorm in g and d', default=0)
+    parser.add_argument('--noisyDiscrim', action='store_true', help='use noisyDiscrim inputs for d', default=0)
 
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK

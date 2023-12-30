@@ -157,6 +157,9 @@ def generate_noise3D(size,num_samp=1,device='cuda',type='gaussian', scale=1):
         noise = torch.randn(num_samp, size[0], size[1], size[2], size[3], device=device)
     return noise
 
+def generate_noise_with_variance(shape, device, variance):
+    return torch.randn(shape, device=device) * (variance)**0.5
+
 
 def plot_learning_curves(G_loss,D_loss,epochs,label1,label2,name):
     fig,ax = plt.subplots(1)

@@ -322,7 +322,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             input_d_real = SELECTED_REAL
 
-            output_real = netD(input_d_real).to(opt.device)
+            instanceNoiseVariance = 0.1 - 0.1*epoch/niter # anneal from 0.1 to 0
+            realVariance = functions.generate_noise_with_variance(input_d_real.shape, opt.device, instanceNoiseVariance) if opt.noisyDiscrim else 0
+
+            output_real = netD(input_d_real + realVariance).to(opt.device)
             errD_real = -output_real.mean()#-a
             if not opt.update_in_one_go:
                 errD_real.backward()
@@ -341,8 +344,9 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             assert fake.shape == input_d_real.shape
 
             input_d_fake = fake
+            fakeVariance = functions.generate_noise_with_variance(input_d_fake.shape, opt.device, instanceNoiseVariance) if opt.noisyDiscrim else 0
 
-            output_fake = netD(input_d_fake.detach())
+            output_fake = netD(input_d_fake.detach() + fakeVariance)
             errD_fake = output_fake.mean()
             if not opt.update_in_one_go:
                 errD_fake.backward()
