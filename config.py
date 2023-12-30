@@ -11,7 +11,7 @@ def get_arguments():
     #load, input, save configurations:
     parser.add_argument('--netG', default='', help="path to netG (to continue training)")
     parser.add_argument('--netD', default='', help="path to netD (to continue training)")
-    parser.add_argument('--manualSeed', type=int, help='manual seed')
+    parser.add_argument('--manualSeed', type=int, help='manual seed', default=2002)
     parser.add_argument('--nc_z',type=int,help='noise # channels',default=1)
     parser.add_argument('--nc_im',type=int,help='image # channels',default=1)
     parser.add_argument('--out',help='output folder',default='Output')
