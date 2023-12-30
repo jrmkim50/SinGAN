@@ -109,10 +109,22 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
             self.body.add_module('block%d'%(i+1),block)
         # pad the skip convolution so we don't worry about shapes
         self.skip = None if not opt.skipG else ConvBlock(max(N,G_MIN_NFC)+int(G_NFC), max(N,G_MIN_NFC),opt.ker_size,opt.ker_size//2,1,opt)
-        self.tail = nn.Sequential(
-            nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
-            nn.Tanh()
-        )
+        if opt.finalConv:
+            self.tail = nn.Sequential(
+                nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
+                nn.BatchNorm3d(opt.nc_im),
+                nn.Tanh()
+            )
+            self.output = nn.Sequential(
+                nn.Conv3d(opt.nc_im,opt.nc_im,kernel_size=1),
+                nn.Tanh()
+            )
+        else:
+            self.tail = nn.Sequential(
+                nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
+                nn.Tanh()
+            )
+            self.output = nn.Identity()
         
     def forward(self,x,y):
         head = self.head(x)
@@ -126,7 +138,7 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         ind = int((y.shape[2]-x.shape[2])/2)
         y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
         summed = x + y
-        return summed
+        return self.output(summed)
     
 
 class encoderBlock(nn.Module):
