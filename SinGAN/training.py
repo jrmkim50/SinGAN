@@ -456,7 +456,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             z_opt2plot.append(rec_loss.detach())
 
         if epoch % 25 == 0 or epoch == (niter-1):
-            print('scale %d:[%d/%d]; d_accuracy: [%.3f]; d_err [%.3f]' % (len(Gs), epoch, niter, num_correct/total_count, errD2plot[-1]))
+            print('scale %d:[%d/%d]; d_real_fake: [%.3f] [%.3f]; d_err [%.3f]; errG [%.3f] [%.3f]' % (len(Gs), epoch, niter, output_real.detach().mean(), output_fake.detach().mean(), errD2plot[-1], errG.detach().item(), rec_loss.detach().item()))
 
         if epoch % 500 == 0 or epoch == (niter-1):
             # 3: UPDATED image saving (No more updates past 5/29)

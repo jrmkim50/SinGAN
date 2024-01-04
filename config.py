@@ -106,6 +106,8 @@ def get_arguments():
     parser.add_argument('--noisyDiscrim', action='store_true', help='use noisyDiscrim inputs for d', default=0)
     parser.add_argument('--finalConv', action='store_true', help='use an extra conv in g output', default=0)
 
+    parser.add_argument('--planarD', action='store_true', help='use an planar conv for d', default=0)
+
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
     # parser.add_argument('--min_ssim', action='store_true', help='use the minimum ssim value', default=0) => DID NOT WORK
     

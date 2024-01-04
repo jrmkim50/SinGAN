@@ -61,7 +61,8 @@ class WDiscriminator(nn.Module):
         N = int(D_NFC)
         paddD = 0 if opt.noPadD else opt.padd_size
         convModule = ConvBlock if not opt.resnet else ConvRes
-        self.head = convModule(opt.nc_im,N,opt.ker_size_d,paddD,1,opt, generator=False)
+        ker_size = opt.ker_size_d if not opt.planarD else (opt.ker_size_d, 1, opt.ker_size_d)
+        self.head = convModule(opt.nc_im,N,ker_size,paddD,1,opt, generator=False)
         self.body = nn.Sequential()
         num_layer = opt.num_layer_d if opt.num_layer_d else opt.num_layer
         for i in range(num_layer-2):
@@ -71,10 +72,10 @@ class WDiscriminator(nn.Module):
                 use_attn = opt.use_attention_d
             elif i == (num_layer - 2 - 1):
                 use_attn = opt.use_attention_end_d
-            block = convModule(max(2*N,opt.min_nfc),max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt,use_attn=use_attn, generator=False)
+            block = convModule(max(2*N,opt.min_nfc),max(N,opt.min_nfc),ker_size,paddD,1,opt,use_attn=use_attn, generator=False)
             self.body.add_module('block%d'%(i+1),block)
-        self.skip = None if not opt.skipD else ConvBlock(max(N,opt.min_nfc)+int(D_NFC), max(N,opt.min_nfc),opt.ker_size_d,paddD,1,opt, generator=False)
-        self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=opt.ker_size_d,stride=1,padding=paddD)
+        self.skip = None if not opt.skipD else ConvBlock(max(N,opt.min_nfc)+int(D_NFC), max(N,opt.min_nfc),ker_size,paddD,1,opt, generator=False)
+        self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=ker_size,stride=1,padding=paddD)
 
     def forward(self,x):
         x = self.head(x)
