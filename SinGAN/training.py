@@ -372,6 +372,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         for j in range(opt.Gsteps):
             netG.zero_grad()
 
+            if opt.remakeFake:
+                fake = netG(noise3D.detach(),prev)
+                input_d_fake = fake
+
             SELECTED_IDX = random.choice(range(total_samps))
             SELECTED_REAL = real_and_extra[SELECTED_IDX][None]
             
