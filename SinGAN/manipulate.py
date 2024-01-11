@@ -87,7 +87,7 @@ def generate_gif(Gs,Zs,reals,NoiseAmp,opt,alpha=0.1,beta=0.9,start_scale=2,fps=1
     imageio.mimsave('%s/start_scale=%d/alpha=%f_beta=%f.gif' % (dir2save,start_scale,alpha,beta),images_cur,fps=fps)
     del images_cur
 
-def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale_z=1,n=0,gen_start_scale=0,num_samples=50,eval=False):
+def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale_z=1,n=0,gen_start_scale=0,num_samples=50,eval=False,extra_pyramids=None):
     #if torch.is_tensor(in_s) == False:
     if in_s is None:
         in_s = torch.full(reals[0].shape, 0, device=opt.device)
@@ -130,7 +130,11 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
             if n < gen_start_scale:
                 z_curr = Z_opt
 
-            z_in = noise_amp*(z_curr)+I_prev    
+            z_in = noise_amp*(z_curr)+I_prev  
+            if opt.combineWithR:
+                randomIndex = random.choice(range(1+len(extra_pyramids)))
+                imagesForLevel = [reals[n],] + [pyramid[n] for pyramid in extra_pyramids]
+                z_in = torch.cat([z_in, m(imagesForLevel[randomIndex])], dim=1)  
             I_curr = G(z_in.detach(),I_prev)
 
             if n == len(reals)-1 or getattr(opt, 'save_all_scales', False):

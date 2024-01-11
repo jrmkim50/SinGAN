@@ -97,7 +97,7 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         G_MIN_NFC = 2*opt.min_nfc if opt.doubleGFilters else opt.min_nfc
         N = int(G_NFC)
         convModule = ConvBlock if not opt.resnet else ConvRes
-        self.head = convModule(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt)
+        self.head = convModule(opt.nc_im * 2 if opt.combineWithR else opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt)
         self.body = nn.Sequential()
         for i in range(opt.num_layer-2):
             N = int(G_NFC/pow(2,(i+1)))
