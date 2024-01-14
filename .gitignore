@@ -10,4 +10,4 @@ Input/Images/*
 test.py
 *.sh
 sifid_images/*
-monai_wholebody_ct
+monai_wholebody_ct/*
