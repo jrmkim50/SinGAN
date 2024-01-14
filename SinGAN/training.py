@@ -201,12 +201,13 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     # 2: Trying LR warmup
     def lr(epoch):
         # 0: 0.1^5, 1: 0.1^4, 2: 0.1^3, 3: 0.1^2, 4: 0.1^1, 5: 0.1^0, 
-        # 6: 0.99857^1, ...
+        # 6: decayLR^1, ...
+        decayLR = opt.gamma**(1/(0.8*opt.niter))
         if epoch <= 5:
             lr_scale = 0.1**(5-epoch)
         else:
             # Calculated so that at epoch 1600, we are multiplying lr by 0.1 (opt.gamma)
-            lr_scale = 0.99857**(epoch-5)
+            lr_scale = decayLR**(epoch-5)
             # lr_scale = 1-((epoch - 5) / 2000)
         return lr_scale
         
