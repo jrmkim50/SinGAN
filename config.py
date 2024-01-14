@@ -96,6 +96,7 @@ def get_arguments():
     parser.add_argument('--growD', type=int, help='incrementally add D layers', default=None)
     parser.add_argument('--reluG', action='store_true', help='use relu in G', default=0)
     parser.add_argument('--resnet', action='store_true', help='use resnet blocks', default=0)
+    parser.add_argument('--resnetV2G', action='store_true', help='use better(?) resnet in G', default=0)
     parser.add_argument('--pretrainD', type=int, help='use monai for D head', default=0) # num layers to use
     parser.add_argument('--extraRecon', type=int, help='extra steps for recon', default=0)
 

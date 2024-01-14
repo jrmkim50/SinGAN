@@ -126,6 +126,28 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
                 nn.Tanh()
             )
             self.output = nn.Identity()
+        self.resnet = None
+        if opt.resnetV2G:
+            assert not opt.finalConv and not opt.resnet
+            resLayers = []
+            N = int(G_NFC)
+            resLayers.append(convModule(opt.nc_im, N, opt.ker_size, opt.ker_size // 2, 1, opt))
+            for i in range(opt.num_layer - 2):
+                N = int(G_NFC/pow(2,(i+1)))
+                use_attn = False
+                if i == (opt.num_layer - 2) // 2:
+                    use_attn = opt.use_attention_g
+                elif i == (opt.num_layer - 2 - 1):
+                    use_attn = opt.use_attention_end_g
+                block = convModule(max(2*N,G_MIN_NFC),max(N,G_MIN_NFC),opt.ker_size,opt.ker_size // 2,1,opt, use_attn=use_attn)
+                resLayers.append(block)
+            resLayers.append(nn.Sequential(
+                nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.ker_size // 2),
+                nn.Tanh()
+            ))
+            self.resnet = nn.Sequential(*resLayers)
+
+
         
     def forward(self,x,y):
         head = self.head(x)
@@ -139,7 +161,11 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         ind = int((y.shape[2]-x.shape[2])/2)
         y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
         summed = x + y
-        return self.output(summed)
+        summed = self.output(summed)
+        if self.resnet:
+            residual = self.resnet(summed)
+            return summed + residual
+        return summed
     
 
 class encoderBlock(nn.Module):
