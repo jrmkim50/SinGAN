@@ -25,12 +25,26 @@ def read_image(opt):
     x = x[:,0:3,:,:]
     return x
 
+def enhanceContrastNP(img):
+    # w,h,d,c
+    # output img in 0-1 range
+    print(img.shape)
+    for channel in range(img.shape[-1]):
+        minval = np.percentile(img[:,:,:,channel], 2)
+        maxval = np.percentile(img[:,:,:,channel], 99.9)
+        print(channel, minval, maxval, img[:,:,:,channel].max())
+        img[:,:,:,channel] = np.clip(img[:,:,:,channel], minval, maxval)
+        img[:,:,:,channel] = ((img[:,:,:,channel] - minval) / (maxval - minval))
+    return img
+
 def read_image3D(opt):
     # Channel axis should come at the end!
     x = nib.load('%s/%s' % (opt.input_dir,opt.input_name)).get_fdata()
     if len(x.shape) == 3:
         # Add channel axis
         x = x[:,:,:,None]
+    if opt.enhanceContrast:
+        x = enhanceContrastNP(x)
     if opt.split_image:
         assert len(x.shape) == 4
         assert x.shape[2] == 128
@@ -47,6 +61,8 @@ def read_image3D(opt):
         if len(reference.shape) == 3:
             # Add channel axis
             reference = reference[:,:,:,None]
+        if opt.enhanceContrast:
+            reference = enhanceContrastNP(reference)
         if opt.split_image:
             assert len(reference.shape) == 4
             assert reference.shape[2] == 128
