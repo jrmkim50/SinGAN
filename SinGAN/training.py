@@ -200,14 +200,15 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
     # 2: Trying LR warmup
     def lr(epoch):
-        # 0: 0.1^5, 1: 0.1^4, 2: 0.1^3, 3: 0.1^2, 4: 0.1^1, 5: 0.1^0, 
-        # 6: decayLR^1, ...
-        decayLR = opt.gamma**(1/(0.8*opt.niter))
-        if epoch <= 5:
-            lr_scale = 0.1**(5-epoch)
+        # 0: 0.1^5, 1: 0.1^4, 2: 0.1^3, 3: 0.1^2, 4: 0.1^1, ..., WARMUP_EPOCHS: 0.1^0, 
+        # WARMUP_EPOCHS+1: decayLR^1, ...
+        WARMUP_EPOCHS = 5
+        decayLR = opt.gamma**(1/(0.8*opt.niter-WARMUP_EPOCHS))
+        if epoch <= WARMUP_EPOCHS:
+            lr_scale = 0.1**(WARMUP_EPOCHS-epoch)
         else:
             # Calculated so that at epoch 1600, we are multiplying lr by 0.1 (opt.gamma)
-            lr_scale = decayLR**(epoch-5)
+            lr_scale = decayLR**(epoch-WARMUP_EPOCHS)
             # lr_scale = 1-((epoch - 5) / 2000)
         return lr_scale
         
@@ -477,7 +478,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             z_opt2plot.append(rec_loss.detach())
 
         if epoch % 25 == 0 or epoch == (niter-1):
-            print('scale %d:[%d/%d]; d_real_fake: [%.3f] [%.3f]; d_err [%.3f]; errG [%.3f] [%.3f]' % (len(Gs), epoch, niter, output_real.detach().mean(), output_fake.detach().mean(), errD2plot[-1], errG.detach().item(), rec_loss.detach().item()))
+            if opt.reconLossOnly:
+                print('scale %d:[%d/%d]; errG [%.3f]' % (len(Gs), epoch, niter, rec_loss.detach().item()))
+            else:
+                print('scale %d:[%d/%d]; d_real_fake: [%.3f] [%.3f]; d_err [%.3f]; errG [%.3f] [%.3f]' % (len(Gs), epoch, niter, output_real.detach().mean(), output_fake.detach().mean(), errD2plot[-1], errG.detach().item() if not opt.reconLossOnly else 0, rec_loss.detach().item()))
 
         if epoch % 500 == 0 or epoch == (niter-1):
             # 3: UPDATED image saving (No more updates past 5/29)
