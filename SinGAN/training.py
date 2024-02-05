@@ -194,6 +194,17 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 dParamsToUpdate.append(param)
                 print(name)
 
+    # netD_fine, optimizerD_fine, schedulerD_fine = None, None, None
+    # if len(Gs) >= 4:
+    #     netD_fine = models.WDiscriminator(opt, inFilters=2).to(opt.device)
+    #     netD_fine.apply(models.weights_init)
+    #     if len(Gs) >= 5:
+    #         print("loading netD_fine")
+    #         netD_fine.load_state_dict(torch.load('%s/%d/netD_fine.pth' % (opt.out_,len(Gs)-1)))
+    #     optimizerD_fine = optim.Adam(netD_fine.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
+    #     schedulerD_fine = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerD_fine,milestones=[0.8*opt.niter],gamma=opt.gamma)
+    #     print(netD_fine)
+
     # setup optimizer
     optimizerD = optim.Adam(dParamsToUpdate, lr=opt.lr_d, betas=(opt.beta1, 0.999))
     optimizerG = optim.Adam(netG.parameters(), lr=opt.lr_g, betas=(opt.beta1, 0.999))
@@ -335,7 +346,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
             input_d_real = SELECTED_REAL
 
-            instanceNoiseVariance = 0.1 - 0.1*epoch/niter # anneal from 0.1 to 0
+            instanceNoiseVariance = 0.0001 - 0.0001*epoch/niter # anneal from 0.0001 to 0 (snr 1000,100->infinity)
             realVariance = functions.generate_noise_with_variance(input_d_real.shape, opt.device, instanceNoiseVariance) if opt.noisyDiscrim else 0
 
             output_real = netD(input_d_real + realVariance).to(opt.device)
@@ -360,9 +371,8 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             assert fake.shape == input_d_real.shape
 
             input_d_fake = fake
-            fakeVariance = functions.generate_noise_with_variance(input_d_fake.shape, opt.device, instanceNoiseVariance) if opt.noisyDiscrim else 0
 
-            output_fake = netD(input_d_fake.detach() + fakeVariance)
+            output_fake = netD(input_d_fake.detach())
             errD_fake = output_fake.mean()
             if not opt.update_in_one_go:
                 errD_fake.backward()
@@ -379,6 +389,22 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             if opt.update_in_one_go:
                 errD.backward()
             optimizerD.step()
+
+            # real_full, input_d_fake_full = None, None
+            # if optimizerD_fine:
+            #     real_full = torch.cat([input_d_real[:,:2,], input_d_real[:,2:,]],dim=4)
+            #     input_d_fake_full = torch.cat([input_d_fake[:,:2,], input_d_fake[:,2:,]],dim=4)
+            #     img_size = real_full.shape[-3:]
+            #     real_full = real_full[:,:,img_size[0]//2-15:img_size[0]//2+15,img_size[1]//2-15:img_size[1]//2+15,img_size[2]//2-15:img_size[2]//2+15]
+            #     input_d_fake_full = input_d_fake_full[:,:,img_size[0]//2-15:img_size[0]//2+15,img_size[1]//2-15:img_size[1]//2+15,img_size[2]//2-15:img_size[2]//2+15]
+            #     output_r = netD_fine(real_full).to(opt.device)
+            #     r_loss = -output_r.mean()#-a
+            #     output_f = netD_fine(input_d_fake_full.detach()).to(opt.device)
+            #     f_loss = output_f.mean()
+            #     gp = functions.calc_gradient_penalty(netD_fine, real_full, input_d_fake_full, opt.lambda_grad, opt.device)
+            #     errD_fine = r_loss + f_loss + gp
+            #     errD_fine.backward()
+            #     optimizerD_fine.step()
 
         errD2plot.append(errD.detach())
 
@@ -399,6 +425,11 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 output = netD(input_d_fake)
                 #D_fake_map = output.detach()
                 errG = -output.mean()
+
+                # if netD_fine:
+                #     assert input_d_fake_full != None
+                #     output_fine = netD_fine(input_d_fake_full)
+                #     errG += -output_fine.mean()
                 
                 if not opt.update_in_one_go:
                     errG.backward(retain_graph=True)
@@ -502,12 +533,16 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
 
         schedulerD.step()
         schedulerG.step()
+        # if schedulerD_fine:
+        #     schedulerD_fine.step()
 
         epoch += 1
 
     print(f"DISCRIMINATOR ACCURACY ({num_correct}/{total_count}):", num_correct/total_count)
 
     functions.save_networks(netG,netD,z_opt3D,opt)
+    # if netD_fine:
+    #     torch.save(netD_fine.state_dict(), '%s/netD_fine.pth' % (opt.outf))
     return z_opt3D,in_s,in_s_z_opt,netG,netD 
 
 def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt,extra_pyramids):
