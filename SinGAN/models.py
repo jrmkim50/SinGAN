@@ -55,7 +55,7 @@ class WDiscriminator(nn.Module):
         convModule = ConvBlock if not opt.resnet else ConvRes
         ker_size = opt.ker_size_d if not opt.planarD else (opt.ker_size_d, 1, opt.ker_size_d)
         self.head = convModule(opt.nc_im,N,ker_size,paddD,1,opt, generator=False)
-        self.body = nn.Sequential()
+        self.body = nn.ModuleList()
         num_layer = opt.num_layer_d if opt.num_layer_d else opt.num_layer
         for i in range(num_layer-2):
             N = int(D_NFC/pow(2,(i+1)))
@@ -64,20 +64,20 @@ class WDiscriminator(nn.Module):
                 use_attn = opt.use_attention_d
             elif i == (num_layer - 2 - 1):
                 use_attn = opt.use_attention_end_d
-            block = convModule(max(2*N,opt.min_nfc),max(N,opt.min_nfc),ker_size,paddD,1,opt,use_attn=use_attn, generator=False)
+            block = convModule(max(2*N,opt.min_nfc)+(opt.nc_im if i < (num_layer - 2) // 2 else 0),max(N,opt.min_nfc),ker_size,paddD,1,opt,use_attn=use_attn, generator=False)
             self.body.add_module('block%d'%(i+1),block)
-        self.skip = None if not opt.skipD else ConvBlock(max(N,opt.min_nfc)+int(D_NFC), max(N,opt.min_nfc),ker_size,paddD,1,opt, generator=False)
         self.tail = nn.Conv3d(max(N,opt.min_nfc),1,kernel_size=ker_size,stride=1,padding=paddD)
 
     def forward(self,x):
+        original = x
         x = self.head(x)
-        feature = self.body(x)
-        if self.skip:
-            ind = int((x.shape[2]-feature.shape[2])/2)
-            x = x[:,:,ind:(x.shape[2]-ind),ind:(x.shape[3]-ind),ind:(x.shape[4]-ind)]
-            feature = torch.cat([x, feature], dim=1)
-            feature = self.skip(feature)
-        x = self.tail(feature)
+        for i, layer in enumerate(self.body):
+            if i < len(self.body) // 2:
+                ind = int(abs(x.shape[2]-original.shape[2])/2)
+                original_ = original[:,:,ind:(original.shape[2]-ind),ind:(original.shape[3]-ind),ind:(original.shape[4]-ind)]
+                x = torch.cat([x, original_], dim=1)
+            x = layer(x)
+        x = self.tail(x)
         return x
 
 
@@ -90,7 +90,7 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         N = int(G_NFC)
         convModule = ConvBlock if not opt.resnet else ConvRes
         self.head = convModule(opt.nc_im * 2 if opt.combineWithR else opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt)
-        self.body = nn.Sequential()
+        self.body = nn.ModuleList()
         for i in range(opt.num_layer-2):
             N = int(G_NFC/pow(2,(i+1)))
             use_attn = False
@@ -98,10 +98,8 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
                 use_attn = opt.use_attention_g
             elif i == (opt.num_layer - 2 - 1):
                 use_attn = opt.use_attention_end_g
-            block = convModule(max(2*N,G_MIN_NFC),max(N,G_MIN_NFC),opt.ker_size,opt.padd_size,1,opt, use_attn=use_attn)
+            block = convModule(max(2*N,G_MIN_NFC)+(opt.nc_im if i < (opt.num_layer - 2) // 2 else 0),max(N,G_MIN_NFC),opt.ker_size,opt.padd_size,1,opt, use_attn=use_attn)
             self.body.add_module('block%d'%(i+1),block)
-        # pad the skip convolution so we don't worry about shapes
-        self.skip = None if not opt.skipG else ConvBlock(max(N,G_MIN_NFC)+int(G_NFC), max(N,G_MIN_NFC),opt.ker_size,opt.ker_size//2,1,opt)
         if opt.finalConv:
             self.tail = nn.Sequential(
                 nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
@@ -118,45 +116,23 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
                 nn.Tanh()
             )
             self.output = nn.Identity()
-        self.resnet = None
-        if opt.resnetV2G:
-            assert not opt.finalConv and not opt.resnet
-            resLayers = []
-            N = int(G_NFC)
-            resLayers.append(convModule(opt.nc_im, N, opt.ker_size, opt.ker_size // 2, 1, opt))
-            for i in range(opt.num_layer - 2):
-                N = int(G_NFC/pow(2,(i+1)))
-                use_attn = False
-                if i == (opt.num_layer - 2) // 2:
-                    use_attn = opt.use_attention_g
-                elif i == (opt.num_layer - 2 - 1):
-                    use_attn = opt.use_attention_end_g
-                block = convModule(max(2*N,G_MIN_NFC),max(N,G_MIN_NFC),opt.ker_size,opt.ker_size // 2,1,opt, use_attn=use_attn)
-                resLayers.append(block)
-            resLayers.append(nn.Sequential(
-                nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.ker_size // 2),
-                nn.Tanh()
-            ))
-            self.resnet = nn.Sequential(*resLayers)
 
 
         
     def forward(self,x,y):
-        head = self.head(x)
-        x = self.body(head)
-        if self.skip:
-            ind = int((head.shape[2]-x.shape[2])/2)
-            head = head[:,:,ind:(head.shape[2]-ind),ind:(head.shape[3]-ind),ind:(head.shape[4]-ind)]
-            x = torch.cat([head, x], dim=1)
-            x = self.skip(x)
+        original_noise = x
+        x = self.head(x)
+        for i, layer in enumerate(self.body):
+            if i < len(self.body) // 2:
+                ind = int(abs(x.shape[2]-original_noise.shape[2])/2)
+                original_ = original_noise[:,:,ind:(original_noise.shape[2]-ind),ind:(original_noise.shape[3]-ind),ind:(original_noise.shape[4]-ind)]
+                x = torch.cat([x, original_], dim=1)
+            x = layer(x)
         x = self.tail(x)
         ind = int((y.shape[2]-x.shape[2])/2)
         y = y[:,:,ind:(y.shape[2]-ind),ind:(y.shape[3]-ind),ind:(y.shape[4]-ind)]
         summed = x + y
         summed = self.output(summed)
-        if self.resnet:
-            residual = self.resnet(summed)
-            return summed + residual
         return summed
     
 
