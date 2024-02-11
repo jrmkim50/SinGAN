@@ -205,21 +205,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     total_count = 0
     num_correct = 0
 
-    if opt.pretrainDiscrim:
-        for j in range(max(niter // 4, 1)):
-            SELECTED_IDX = random.choice(range(total_samps))
-            SELECTED_REAL = real_and_extra[SELECTED_IDX][None]
-            netD.zero_grad()
-            input_d_real = SELECTED_REAL
-            output_real = netD(input_d_real).to(opt.device)
-            errD_real = -output_real.mean()#-a
-            errD_real.backward()
-            optimizerD.step()
-
-            if j % 25 == 0:
-                print(f"pretrain step: {j}/{max(niter // 4, 1)}")
-
-
     if (Gs == []) & (opt.mode != 'SR_train'):
         prev = torch.full([1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
         in_s = prev
