@@ -99,53 +99,6 @@ class SimLoss(nn.Module):
             return 1-ssim(fake, real, reduction='none')
         return -1 * ssim(fake, real)
 
-def make_slice(im, vgg_axis, mid_slice):
-    # im: b,c,w,h,d
-    im_slice_1, im_slice_2, im_slice_3 = None, None, None
-    if vgg_axis == 1:
-        im_slice_1 = im[:,:,mid_slice-1]
-        im_slice_2 = im[:,:,mid_slice]
-        im_slice_3 = im[:,:,mid_slice+1]
-    elif vgg_axis == 2:
-        im_slice_1 = im[:,:,:,mid_slice-1]
-        im_slice_2 = im[:,:,:,mid_slice]
-        im_slice_3 = im[:,:,:,mid_slice+1]
-    else:
-        im_slice_1 = im[:,:,:,:,mid_slice-1]
-        im_slice_2 = im[:,:,:,:,mid_slice]
-        im_slice_3 = im[:,:,:,:,mid_slice+1]
-    im_slice = torch.cat([im_slice_1,im_slice_2,im_slice_3],1).float()
-    return im_slice
-
-class VGGLossWraper(nn.Module):
-    def __init__(self, vgg_axis, scale_num):
-        # scale_num == len(Gs)
-        super(VGGLossWraper, self).__init__()
-        self.loss = VGGLoss().cuda()
-        assert vgg_axis in [1,2,3]
-        self.vgg_axis = vgg_axis
-        self.scale_num = scale_num
-        self.scale_to_slice = {
-            3: {
-                1: 21, 2: 14, 3: 14
-            },
-            4: {
-                1: 26, 2: 16, 3: 17
-            },
-            5: {
-                1: 32, 2: 20, 3: 21
-            },
-            6: {
-                1: 39, 2: 25, 3: 26
-            }
-        }
-
-    def forward(self, fake, real):
-        # fake and real are in 0-1 range when forward() called
-        fake_slice = make_slice(fake, self.vgg_axis, self.scale_to_slice[self.scale_num][self.vgg_axis])
-        real_slice = make_slice(real, self.vgg_axis, self.scale_to_slice[self.scale_num][self.vgg_axis])
-        return self.loss(fake_slice, real_slice)
-
 def harmonic_mean(nums):
     assert len(nums) > 0
     return len(nums) / torch.reciprocal(nums + 1e-16).sum()
@@ -239,12 +192,10 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     z_opt2plot = []
 
     sim_loss = None
-    assert opt.sim_type in ["vgg", "ssim", "medical_net"]
+    assert opt.sim_type in ["ssim", "medical_net"]
     assert opt.sim_boundary_type in ["start", "end"]
     if opt.sim_type == "ssim":
         sim_loss = SimLoss(use_harmonic=opt.harmonic_ssim).cuda()
-    elif opt.sim_type == "vgg":
-        sim_loss = VGGLossWraper(opt.vgg_axis, len(Gs))
     elif opt.sim_type == "medical_net":
         sim_loss = MedicalNetLoss(normalize=opt.normalize_medical_net, model=opt.medical_net_model)
 
