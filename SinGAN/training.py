@@ -137,14 +137,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     z_opt3D = torch.full(fixed_noise3D.shape, 0, device=opt.device)
     z_opt3D = m_noise3D(z_opt3D)
 
-    dParamsToUpdate = netD.parameters()
-    if opt.pretrainD:
-        dParamsToUpdate = []
-        for name, param in netD.named_parameters():
-            if param.requires_grad:
-                dParamsToUpdate.append(param)
-                print(name)
-
     # netD_fine, optimizerD_fine, schedulerD_fine = None, None, None
     # if len(Gs) >= 4:
     #     netD_fine = models.WDiscriminator(opt, inFilters=2).to(opt.device)
@@ -157,7 +149,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     #     print(netD_fine)
 
     # setup optimizer
-    optimizerD = optim.Adam(dParamsToUpdate, lr=opt.lr_d, betas=(opt.beta1, 0.999))
+    optimizerD = optim.Adam(netD.parameters(), lr=opt.lr_d, betas=(opt.beta1, 0.999))
     optimizerG = optim.Adam(netG.parameters(), lr=opt.lr_g, betas=(opt.beta1, 0.999))
 
     # 2: Trying LR warmup
@@ -599,15 +591,8 @@ def init_models(opt, real_shape, scale_num):
     print(netG)
 
     #discriminator initialization:
-    if opt.pretrainD:
-        netD = models.FinetuneNet(opt).to(opt.device)
-        netD.apply(models.weights_init)
-        netD.load_state_dict(torch.load('monai_wholebody_ct/models/model.pth'), strict=False)
-        netD.convInit.requires_grad_(False) # freeze convInit
-        netD.down_layers.requires_grad_(False) # freeze the pretrained layer
-    else:
-        netD = models.WDiscriminator(opt).to(opt.device) if not opt.unetD else models.Unet(opt, False).to(opt.device)
-        netD.apply(models.weights_init)
+    netD = models.WDiscriminator(opt).to(opt.device) if not opt.unetD else models.Unet(opt, False).to(opt.device)
+    netD.apply(models.weights_init)
     if opt.netD != '':
         netD.load_state_dict(torch.load(opt.netD))
     print(netD)
