@@ -63,9 +63,8 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
 
         D_curr,G_curr = init_models(opt, reals[scale_num].shape, scale_num)
         if nfc_prev==opt.nfc:
-            if opt.pretrainG != 2:
-                print("loading gen")
-                G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
+            print("loading gen")
+            G_curr.load_state_dict(torch.load('%s/%d/netG.pth' % (opt.out_,scale_num-1)))
             print("loading discrim")
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)), strict=False)
 
@@ -646,10 +645,6 @@ def init_models(opt, real_shape, scale_num):
     netG.apply(models.weights_init)
     if opt.netG != '':
         netG.load_state_dict(torch.load(opt.netG))
-    if opt.pretrainG == 1 and scale_num == 0:
-        netG.load_state_dict(torch.load("TrainedModels/rat_two_channel_split.ni/scale_factor=0.850,num_layers=6,sim_alpha=0.300,sim_boundary=3,sim_boundary_type=start,use_attn_g=1,use_attn_end_g=0,use_attn_d=1,use_attn_end_d=0,nfc=32,min_size=20,few_gan=5,num_layer_d=4,split,warm_d,update_in_one_go,alpha=50,reconLoss,niter=3000/0/netG.pth", map_location=torch.device('cpu')))
-    elif opt.pretrainG == 2:
-        netG.load_state_dict(torch.load(f"TrainedModels/rat_two_channel_split.ni/scale_factor=0.850,num_layers=6,sim_alpha=0.300,sim_boundary=3,sim_boundary_type=start,use_attn_g=1,use_attn_end_g=0,use_attn_d=1,use_attn_end_d=0,nfc=32,min_size=20,few_gan=5,num_layer_d=4,split,warm_d,update_in_one_go,alpha=50,reconLoss,niter=3000/{scale_num}/netG.pth", map_location=torch.device('cpu')))
     print(netG)
 
     #discriminator initialization:
