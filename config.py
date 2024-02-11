@@ -81,7 +81,6 @@ def get_arguments():
     parser.add_argument('--update_in_one_go', action='store_true', help='updates models with errors at once', default=0)
 
     # must include in configtag
-    parser.add_argument('--pretrainGen', action='store_true', help='train gen on recon images for 500 iters', default=0)
     parser.add_argument('--reconLossOnly', action='store_true', help='train gen with recon loss only', default=0)
     parser.add_argument('--unetG', action='store_true', help='use unet for generator', default=0)
     parser.add_argument('--unetD', action='store_true', help='use unet for discrim', default=0)
