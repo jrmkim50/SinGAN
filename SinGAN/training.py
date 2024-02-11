@@ -103,17 +103,6 @@ def harmonic_mean(nums):
     assert len(nums) > 0
     return len(nums) / torch.reciprocal(nums + 1e-16).sum()
 
-def fillWithReal(real):
-    realRef = torch.zeros_like(real)
-    rectSize = (real.shape[2] // 2, real.shape[3] // 2, real.shape[4] // 2)
-    rectStart = [random.randint(0, size) for size in rectSize]
-    realRef[:,:,rectStart[0]:rectStart[0]+rectSize[0],
-            rectStart[1]:rectStart[1]+rectSize[1],
-            rectStart[2]:rectStart[2]+rectSize[2]] = real[:,:,rectStart[0]:rectStart[0]+rectSize[0],
-            rectStart[1]:rectStart[1]+rectSize[1],
-            rectStart[2]:rectStart[2]+rectSize[2]]
-    return realRef
-
 def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,centers=None):
     real = reals3D[len(Gs)]
     to_cat = [real,]
@@ -268,9 +257,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             else:
                 noise3D = opt.noise_amp*noise_3D+prev
 
-            if opt.combineWithR:
-                noise3D = torch.cat([noise3D, m_noise3D(fillWithReal(SELECTED_REAL))], dim=1)
-
             fake = netG(noise3D.detach(),prev)
 
             assert fake.shape == input_d_real.shape
@@ -373,12 +359,12 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
                 assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
                 if not opt.update_in_one_go:
                     for idx in range(total_samps):
-                        zNoise = torch.cat([Z_opt.detach()[idx][None], m_noise3D(fillWithReal(SELECTED_REAL))], dim=1) if opt.combineWithR else Z_opt.detach()[idx][None]
+                        zNoise = Z_opt.detach()[idx][None]
                         fake_recon = netG(zNoise,z_prev3D[idx][None])
                         rec_loss = (alpha / total_samps)*loss(fake_recon, real_and_extra[idx][None])
                         rec_loss.backward(retain_graph=True)
                 else:
-                    zNoise = torch.cat([Z_opt.detach(), m_noise3D(fillWithReal(real_and_extra))], dim=1) if opt.combineWithR else Z_opt.detach()
+                    zNoise = Z_opt.detach()
                     fake_recon = netG(zNoise,z_prev3D)
                     rec_loss = alpha*loss(fake_recon, real_and_extra)
             else:
@@ -422,7 +408,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         if epoch % 500 == 0 or epoch == (niter-1):
             # 3: UPDATED image saving (No more updates past 5/29)
             plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np3D(fake.detach(), opt=opt), vmin=0, vmax=1)
-            zNoise = torch.cat([Z_opt.detach(), m_noise3D(fillWithReal(real_and_extra))], dim=1) if opt.combineWithR else Z_opt.detach()
+            zNoise = Z_opt.detach()
             opt_imgs = netG(zNoise, z_prev3D).detach()
             for idx, opt_img in enumerate(opt_imgs):
                 plt.imsave('%s/z_prev_%d.png'    % (opt.outf, idx),  functions.convert_image_np3D(z_prev3D[idx][None], opt=opt), vmin=0, vmax=1)
@@ -470,10 +456,6 @@ def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt,extra
                 G_z = G_z[:,:,0:real_curr.shape[2],0:real_curr.shape[3],0:real_curr.shape[4]]
                 G_z = m_image3D(G_z)
                 z_in = noise_amp*z3D+G_z
-                if opt.combineWithR:
-                    randomIndex = random.choice(range(1+len(extra_pyramids)))
-                    imagesForLevel = [reals3D[count],] + [pyramid[count] for pyramid in extra_pyramids]
-                    z_in = torch.cat([z_in, m_noise3D(fillWithReal(imagesForLevel[randomIndex]))], dim=1)
                 G_z = G(z_in.detach(),G_z)
                 G_z = imresize3D(G_z,1/opt.scale_factor,opt)
                 G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3],0:real_next.shape[4]]
@@ -484,9 +466,6 @@ def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt,extra
                 G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3], 0:real_curr.shape[4]]
                 G_z = m_image3D(G_z)
                 z_in = noise_amp*Z_opt+G_z
-                if opt.combineWithR:
-                    imagesForLevel = torch.cat([reals3D[count],] + [pyramid[count] for pyramid in extra_pyramids])
-                    z_in = torch.cat([z_in, m_noise3D(fillWithReal(imagesForLevel))], dim=1)
                 G_z = G(z_in.detach(),G_z)
                 G_z = imresize3D(G_z,1/opt.scale_factor,opt)
                 G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3],0:real_next.shape[4]]

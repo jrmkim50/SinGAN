@@ -131,10 +131,6 @@ def SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt,in_s=None,scale_v=1,scale_h=1,scale
                 z_curr = Z_opt
 
             z_in = noise_amp*(z_curr)+I_prev  
-            if opt.combineWithR:
-                randomIndex = random.choice(range(1+len(extra_pyramids)))
-                imagesForLevel = [reals[n],] + [pyramid[n] for pyramid in extra_pyramids]
-                z_in = torch.cat([z_in, m(fillWithReal(imagesForLevel[randomIndex]))], dim=1)  
             I_curr = G(z_in.detach(),I_prev)
 
             if n == len(reals)-1 or getattr(opt, 'save_all_scales', False):
