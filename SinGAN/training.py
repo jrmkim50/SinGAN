@@ -191,9 +191,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         print("Training layer for longer")
         niter *= 2
 
-    total_count = 0
-    num_correct = 0
-
     if (Gs == []) & (opt.mode != 'SR_train'):
         prev = torch.full([1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz], 0, device=opt.device)
         in_s = prev
@@ -248,10 +245,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             if not opt.update_in_one_go:
                 errD_real.backward()
 
-            if output_real.detach().mean() > 0:
-                num_correct += 1
-            total_count += 1
-
             if (Gs == []) & (opt.mode != 'SR_train'):
                 noise3D = noise_3D
             else:
@@ -267,10 +260,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
             errD_fake = output_fake.mean()
             if not opt.update_in_one_go:
                 errD_fake.backward()
-
-            if output_fake.detach().mean() < 0:
-                num_correct += 1
-            total_count += 1
 
             gradient_penalty = functions.calc_gradient_penalty(netD, input_d_real, input_d_fake, opt.lambda_grad, opt.device)
             if not opt.update_in_one_go:
@@ -428,8 +417,6 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         #     schedulerD_fine.step()
 
         epoch += 1
-
-    print(f"DISCRIMINATOR ACCURACY ({num_correct}/{total_count}):", num_correct/total_count)
 
     functions.save_networks(netG,netD,z_opt3D,opt)
     # if netD_fine:
