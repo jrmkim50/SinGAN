@@ -213,10 +213,12 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
         opt.noise_amp = opt.noise_amp_init*RMSE
         z_prev3D = m_image3D(z_prev3D)
 
+    if (Gs == []) & (opt.mode != 'SR_train'):
+        z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=total_samps)
+        z_opt3D = m_noise3D(z_opt3D.expand(total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
+
     while epoch < int(niter):
         if (Gs == []) & (opt.mode != 'SR_train'):
-            z_opt3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device, num_samp=total_samps)
-            z_opt3D = m_noise3D(z_opt3D.expand(total_samps,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
             noise_3D = functions.generate_noise3D([1,opt.nzx,opt.nzy,opt.nzz], device=opt.device)
             noise_3D = m_noise3D(noise_3D.expand(1,opt.nc_z,opt.nzx,opt.nzy,opt.nzz))
         else:
@@ -427,43 +429,42 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     return z_opt3D,in_s,in_s_z_opt,netG,netD 
 
 def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt,extra_pyramids):
-    with torch.no_grad():
-        G_z = in_s
-        if len(Gs) > 0:
-            if mode == 'rand':
-                count = 0
-                pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2) if (not opt.unetG and opt.padd_size == 0) else 0
-                if opt.mode == 'animation_train':
-                    pad_noise = 0
-                for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
-                    if count == 0:
-                        noise_shape = [1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise]
-                        z3D = functions.generate_noise3D(noise_shape, device=opt.device)
-                        z3D = z3D.expand(1, opt.nc_z, z3D.shape[2], z3D.shape[3], z3D.shape[4])
-                    else:
-                        noise_shape = [opt.nc_z,Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise]
-                        z3D = functions.generate_noise3D(noise_shape, device=opt.device)
-                    z3D = m_noise3D(z3D)
-                    G_z = G_z[:,:,0:real_curr.shape[2],0:real_curr.shape[3],0:real_curr.shape[4]]
-                    G_z = m_image3D(G_z)
-                    z_in = noise_amp*z3D+G_z
-                    G_z = G(z_in.detach(),G_z)
-                    G_z = imresize3D(G_z,1/opt.scale_factor,opt)
-                    G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3],0:real_next.shape[4]]
-                    count += 1
-            if mode == 'rec':
-                count = 0
-                for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
-                    G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3], 0:real_curr.shape[4]]
-                    G_z = m_image3D(G_z)
-                    z_in = noise_amp*Z_opt+G_z
-                    G_z = G(z_in.detach(),G_z)
-                    G_z = imresize3D(G_z,1/opt.scale_factor,opt)
-                    G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3],0:real_next.shape[4]]
-                    #if count != (len(Gs)-1):
-                    #    G_z = m_image(G_z)
-                    count += 1
-        return G_z
+    G_z = in_s
+    if len(Gs) > 0:
+        if mode == 'rand':
+            count = 0
+            pad_noise = int(((opt.ker_size-1)*opt.num_layer)/2) if (not opt.unetG and opt.padd_size == 0) else 0
+            if opt.mode == 'animation_train':
+                pad_noise = 0
+            for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
+                if count == 0:
+                    noise_shape = [1, Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise]
+                    z3D = functions.generate_noise3D(noise_shape, device=opt.device)
+                    z3D = z3D.expand(1, opt.nc_z, z3D.shape[2], z3D.shape[3], z3D.shape[4])
+                else:
+                    noise_shape = [opt.nc_z,Z_opt.shape[2] - 2 * pad_noise, Z_opt.shape[3] - 2 * pad_noise, Z_opt.shape[4] - 2 * pad_noise]
+                    z3D = functions.generate_noise3D(noise_shape, device=opt.device)
+                z3D = m_noise3D(z3D)
+                G_z = G_z[:,:,0:real_curr.shape[2],0:real_curr.shape[3],0:real_curr.shape[4]]
+                G_z = m_image3D(G_z)
+                z_in = noise_amp*z3D+G_z
+                G_z = G(z_in.detach(),G_z)
+                G_z = imresize3D(G_z,1/opt.scale_factor,opt)
+                G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3],0:real_next.shape[4]]
+                count += 1
+        if mode == 'rec':
+            count = 0
+            for G,Z_opt,real_curr,real_next,noise_amp in zip(Gs,Zs,reals3D,reals3D[1:],NoiseAmp):
+                G_z = G_z[:, :, 0:real_curr.shape[2], 0:real_curr.shape[3], 0:real_curr.shape[4]]
+                G_z = m_image3D(G_z)
+                z_in = noise_amp*Z_opt+G_z
+                G_z = G(z_in.detach(),G_z)
+                G_z = imresize3D(G_z,1/opt.scale_factor,opt)
+                G_z = G_z[:,:,0:real_next.shape[2],0:real_next.shape[3],0:real_next.shape[4]]
+                #if count != (len(Gs)-1):
+                #    G_z = m_image(G_z)
+                count += 1
+    return G_z
 
 def train_paint(opt,Gs,Zs,reals,NoiseAmp,centers,paint_inject_scale):
     assert False, "not implemented"
