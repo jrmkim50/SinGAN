@@ -39,8 +39,7 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
             assert abs(pyramid[pyramid_level]-reals[pyramid_level]).sum() != 0
     nfc_prev = 0
     print("Num layers:", opt.stop_scale)
-    in_s = torch.zeros_like(reals[0])
-    in_s_z_opt = torch.zeros_like(reals[0]).extend(len(extra_image) + 1, *reals[0].shape[1:])
+    in_s_z_opt_FULL = torch.zeros_like(reals[0]).expand(len(extra_images) + 1, *reals[0].shape[1:]).to(opt.device)
 
     while scale_num<opt.stop_scale+1:
         opt.nfc = min(opt.nfc_init * pow(2, math.floor(scale_num / 4)), 128)
@@ -68,10 +67,9 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
             print("loading discrim")
             D_curr.load_state_dict(torch.load('%s/%d/netD.pth' % (opt.out_,scale_num-1)), strict=False)
 
-        z_curr,G_curr,D_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt)
+        z_curr,G_curr,D_curr = train_single_scale3D(D_curr,G_curr,reals,extra_pyramids,Gs,Zs,in_s_z_opt_FULL,NoiseAmp,opt)
 
-        assert in_s.shape == reals[0].shape, "in_s is always same shape as first scale"
-        assert in_s_z_opt.shape[1:] == reals[0].shape[1:], "in_s_z_opt is always same shape as first scale"
+        assert in_s_z_opt_FULL.shape[1:] == reals[0].shape[1:], "in_s_z_opt is always same shape as first scale"
 
         G_curr = functions.reset_grads(G_curr,False)
         G_curr.eval()
@@ -108,7 +106,8 @@ def harmonic_mean(nums):
 
 import pytorch_lightning as pl
 
-def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,NoiseAmp,opt,centers=None):
+def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s_z_opt_FULL,NoiseAmp,opt,centers=None):
+    assert opt.sim_type == "ssim", "ssim option only"
     real = reals3D[len(Gs)]
     to_cat = [real,]
     to_cat += [pyramid[len(Gs)] for pyramid in extra_pyramids]
@@ -136,16 +135,25 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s,in_s_z_opt,
     if (Gs == []) & (opt.mode != 'SR_train'):
         opt.noise_amp = 1
     else:
-        z_prev3D = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s_z_opt,'rec',m_noise3D,m_image3D,opt)
+        _z_prev3D_FULL = draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s_z_opt_FULL,'rec',m_noise3D,m_image3D,opt)
         criterion = nn.MSELoss()
-        assert z_prev3D.shape[:2] == real_and_extra.shape[:2], f"{z_prev3D.shape} versus {real_and_extra.shape}"
-        RMSE = torch.sqrt(criterion(real_and_extra, z_prev3D))
+        assert _z_prev3D_FULL.shape == real_and_extra.shape, f"{_z_prev3D_FULL.shape} versus {real_and_extra.shape}"
+        RMSE = torch.sqrt(criterion(real_and_extra, _z_prev3D_FULL))
         opt.noise_amp = opt.noise_amp_init*RMSE
 
-    functions.save_networks(netG,netD,z_opt3D,opt)
+    bs = (1, 6)
+    model = models.SinGAN(netG, netD, Gs, Zs, NoiseAmp, (m_noise3D, m_image3D), reals3D, real_and_extra, bs, opt)
+    trainer = pl.Trainer(max_epochs=niter, gpus=[opt.device.index], 
+                         logger=None, enable_checkpointing=False, enable_progress_bar=False)
+    trainer.fit(model)
+
+    netG = netG.to(opt.device)
+    model.z_opt3D_FULL = model.z_opt3D_FULL.to(opt.device)
+
+    functions.save_networks(netG,netD,model.z_opt3D_FULL,opt)
     # if netD_fine:
     #     torch.save(netD_fine.state_dict(), '%s/netD_fine.pth' % (opt.outf))
-    return z_opt3D,netG,netD 
+    return model.z_opt3D_FULL,netG,netD 
 
 def draw_concat3D(Gs,Zs,reals3D,NoiseAmp,in_s,mode,m_noise3D,m_image3D,opt):
     G_z = in_s

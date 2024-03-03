@@ -38,6 +38,17 @@ def np2torch(x,opt):
     x = norm(x)
     return x
 
+def np2torch3D_pl(x,device):
+    # x starts as w,h,d,channels
+    x = x[:,:,:,:,None]
+    # x is now batch,channels,w,h,d and is in 0-1 range
+    x = x.transpose((4, 3, 0, 1, 2))
+    x = torch.from_numpy(x).to(device)
+    x = x.float()
+    #x = x.type(torch.FloatTensor)
+    x = norm(x)
+    return x
+
 def np2torch3D(x,opt):
     # x starts as w,h,d,channels
     x = x[:,:,:,:,None]
@@ -81,6 +92,25 @@ def imresize3D(im,scale,opt):
         assert len(im_.shape) == 4
         im_ = imresize_in(im_, scale_factor=scale)
         im_ = np2torch3D(im_,opt)
+        # [batch,channels,w,h,d]
+        ims.append(im_[0])
+    im = torch.stack(ims)
+    #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
+    return im
+
+def imresize3D_pl(im,scale,device):
+    #s = im.shape
+    ims = []
+    for idx in range(im.shape[0]):
+        im_ = im[idx]
+        # [channel,w,h,d]
+        im_ = im_.permute((1,2,3,0))
+        # [w,h,d,channel]
+        im_ = denorm(im_)
+        im_ = im_.cpu().numpy()
+        assert len(im_.shape) == 4
+        im_ = imresize_in(im_, scale_factor=scale)
+        im_ = np2torch3D_pl(im_,device)
         # [batch,channels,w,h,d]
         ims.append(im_[0])
     im = torch.stack(ims)

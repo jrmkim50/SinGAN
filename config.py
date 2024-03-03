@@ -63,7 +63,7 @@ def get_arguments():
     parser.add_argument('--train_first_layers_longer', type=int, help='train first n scales for 2 * original num iters', default=0)
 
     parser.add_argument('--split_image', action='store_true', help='fold image in half', default=0)
-    parser.add_argument('--harmonic_ssim', action='store_true', help='use harmonic mean ssim value', default=0)
+    # parser.add_argument('--harmonic_ssim', action='store_true', help='use harmonic mean ssim value', default=0)
 
     parser.add_argument('--warmup_g', action='store_true', help='warmup for generator', default=0)
     parser.add_argument('--warmup_d', action='store_true', help='warmup for discriminator', default=0)
@@ -71,17 +71,17 @@ def get_arguments():
     parser.add_argument('--spectral_norm_g', action='store_true', help='spectral norm for generator', default=0)
     parser.add_argument('--spectral_norm_d', action='store_true', help='spectral norm for discriminator', default=0)
 
-    parser.add_argument('--sim_loss_one_image', action='store_true', help='only use one image for ssim loss', default=0)
+    # parser.add_argument('--sim_loss_one_image', action='store_true', help='only use one image for ssim loss', default=0)
 
     parser.add_argument('--normalize_medical_net', action='store_true', help='normalize the medical net inputs', default=0) # include in config tag
     parser.add_argument('--medical_net_model', type=str, help='medical net model', default=None) # include in config tag
 
     parser.add_argument('--vgg_axis', type=int, help='axis to take vgg loss on', default=None)
 
-    parser.add_argument('--update_in_one_go', action='store_true', help='updates models with errors at once', default=0)
+    # parser.add_argument('--update_in_one_go', action='store_true', help='updates models with errors at once', default=0)
 
     # must include in configtag
-    parser.add_argument('--reconLossOnly', action='store_true', help='train gen with recon loss only', default=0)
+    # parser.add_argument('--reconLossOnly', action='store_true', help='train gen with recon loss only', default=0)
     parser.add_argument('--unetG', action='store_true', help='use unet for generator', default=0)
     parser.add_argument('--unetD', action='store_true', help='use unet for discrim', default=0)
     parser.add_argument('--doubleDFilters', action='store_true', help='use 2x filters for discrim', default=0)
@@ -94,16 +94,16 @@ def get_arguments():
     # parser.add_argument('--reluG', action='store_true', help='use relu in G', default=0) # not helpful
     parser.add_argument('--resnet', action='store_true', help='use resnet blocks', default=0)
     parser.add_argument('--resnetV2G', action='store_true', help='use better(?) resnet in G', default=0)
-    parser.add_argument('--extraRecon', type=int, help='extra steps for recon', default=0)
+    # parser.add_argument('--extraRecon', type=int, help='extra steps for recon', default=0)
 
     # NOTE: do not delete scale_factor=0.850,num_layers=6,sim_alpha=0.300,sim_boundary=3,sim_boundary_type=start,use_attn_g=1,use_attn_end_g=0,use_attn_d=1,use_attn_end_d=0,nfc=32,min_size=20,few_gan=5,num_layer_d=4,split,warm_d,update_in_one_go,alpha=50,reconLoss,niter=3000 model
     # parser.add_argument('--instanceNormD', action='store_true', help='use instanceNorm in D', default=0) # not helpful
     # parser.add_argument('--instanceNorm', action='store_true', help='use instanceNorm in g and d', default=0) # not helpful
-    parser.add_argument('--noisyDiscrim', action='store_true', help='use noisyDiscrim inputs for d', default=0)
+    # parser.add_argument('--noisyDiscrim', action='store_true', help='use noisyDiscrim inputs for d', default=0)
     parser.add_argument('--finalConv', action='store_true', help='use an extra conv in g output', default=0)
 
     parser.add_argument('--planarD', action='store_true', help='use an planar conv for d', default=0)
-    parser.add_argument('--remakeFake', action='store_true', help='remake fake before updating g', default=0)
+    # parser.add_argument('--remakeFake', action='store_true', help='remake fake before updating g', default=0)
     parser.add_argument('--enhanceContrast', action='store_true', help='enhance real image contrast as preprocessing', default=0)
 
     # parser.add_argument('--discrim_recon', action='store_true', help='include random recon image in discriminator loss', default=0) => DID NOT WORK
