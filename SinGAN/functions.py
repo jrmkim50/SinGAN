@@ -37,9 +37,34 @@ def enhanceContrastNP(img):
         img[:,:,:,channel] = ((img[:,:,:,channel] - minval) / (maxval - minval))
     return img
 
+def process_data(ct, pet):
+    img_ct = np.copy(ct)
+    img_pet = np.copy(pet)
+    for i, img in enumerate([img_ct, img_pet]):
+        # Remove some outliers from the body of the rat (ct > 0)
+        p99 = np.percentile(img[ct > 0], 99.5)
+        img[img > p99] = p99
+        # Standardize the body of the rat
+        stats = (img[ct > 0].mean(), img[ct > 0].std())
+        img -= stats[0]
+        img /= stats[1]
+        # Normalize to body of the rat to 0 and 1
+        min_max = (img[ct > 0].min(), img[ct > 0].max())
+        img = (img - min_max[0]) / (min_max[1] - min_max[0])
+        # Set the background to 0
+        img[ct == 0] = 0
+        if i == 0:
+            img_ct = img
+        else:
+            img_pet = img
+    return img_ct, img_pet
+
 def read_image3D(opt):
     # Channel axis should come at the end!
     x = nib.load('%s/%s' % (opt.input_dir,opt.input_name)).get_fdata()
+    _ct, _pet = process_data(x[:,:,:,0], x[:,:,:,1])
+    print(_ct.min(), _ct.max(), _pet.min(), _pet.max())
+    x[:,:,:,0], x[:,:,:,1] = _ct, _pet
     if len(x.shape) == 3:
         # Add channel axis
         x = x[:,:,:,None]
@@ -58,6 +83,10 @@ def read_image3D(opt):
         file_name = opt.input_name.split(".")[0]
         extension = ".".join(opt.input_name.split(".")[1:]) # Extension has no leading period
         reference = nib.load(f"{opt.input_dir}/{file_name}_{num}.{extension}").get_fdata()
+        assert reference.shape[3] == 2
+        _ct, _pet = process_data(reference[:,:,:,0], reference[:,:,:,1])
+        print(_ct.min(), _ct.max(), _pet.min(), _pet.max())
+        reference[:,:,:,0], reference[:,:,:,1] = _ct, _pet
         if len(reference.shape) == 3:
             # Add channel axis
             reference = reference[:,:,:,None]
