@@ -141,7 +141,7 @@ def train_single_scale3D(netD,netG,reals3D,extra_pyramids,Gs,Zs,in_s_z_opt_FULL,
         RMSE = torch.sqrt(criterion(real_and_extra, _z_prev3D_FULL))
         opt.noise_amp = opt.noise_amp_init*RMSE
 
-    bs = (1, 6)
+    bs = (3, 3) # (3, 3)
     model = models.SinGAN(netG, netD, Gs, Zs, NoiseAmp, (m_noise3D, m_image3D), reals3D, real_and_extra, bs, opt)
     trainer = pl.Trainer(max_epochs=niter, gpus=[opt.device.index], 
                          logger=None, enable_checkpointing=False, enable_progress_bar=False)

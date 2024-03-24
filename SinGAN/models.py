@@ -89,8 +89,12 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
         G_NFC = 2*opt.nfc if opt.doubleGFilters else opt.nfc
         G_MIN_NFC = 2*opt.min_nfc if opt.doubleGFilters else opt.min_nfc
         N = int(G_NFC)
+        assert opt.num_layer == 6
+        filters = [N, 2*N, 3*N, 2*N, N]
         convModule = ConvBlock if not opt.resnet else ConvRes
-        self.head = convModule(opt.nc_im,N,opt.ker_size,opt.padd_size,1,opt)
+        ker_size = opt.ker_size
+        paddG = opt.padd_size
+        self.head = convModule(opt.nc_im,filters[0],ker_size,paddG,1,opt)
         self.body = nn.ModuleList()
         for i in range(opt.num_layer-2):
             N = int(G_NFC/pow(2,(i+1)))
@@ -99,11 +103,11 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
                 use_attn = opt.use_attention_g
             elif i == (opt.num_layer - 2 - 1):
                 use_attn = opt.use_attention_end_g
-            block = convModule(max(2*N,G_MIN_NFC)+(opt.nc_im if i < (opt.num_layer - 2) // 2 else 0),max(N,G_MIN_NFC),opt.ker_size,opt.padd_size,1,opt, use_attn=use_attn)
+            block = convModule(filters[i]+(opt.nc_im if i < (opt.num_layer - 2) // 2 else 0),filters[i+1],ker_size,paddG,1,opt, use_attn=use_attn)
             self.body.add_module('block%d'%(i+1),block)
         if opt.finalConv:
             self.tail = nn.Sequential(
-                nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
+                nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=ker_size,stride =1,padding=paddG),
                 nn.BatchNorm3d(opt.nc_im),
                 nn.Tanh()
             )
@@ -113,7 +117,7 @@ class GeneratorConcatSkip2CleanAdd(nn.Module):
             )
         else:
             self.tail = nn.Sequential(
-                nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=opt.ker_size,stride =1,padding=opt.padd_size),
+                nn.Conv3d(max(N,G_MIN_NFC),opt.nc_im,kernel_size=ker_size,stride =1,padding=paddG),
                 nn.Tanh()
             )
             self.output = nn.Identity()
@@ -450,8 +454,21 @@ class SinGAN(pl.LightningModule):
             fake_recon = self(Z_opt.detach(),z_prev3D)
             rec_loss = self.opt.alpha*loss(fake_recon, recon_imgs)
             errG += rec_loss
+
+            # focused_loss = nn.L1Loss()
+            # fake_recon_highs = fake_recon.max(dim=3).values
+            # focused_rec_loss = self.opt.alpha // 2 * focused_loss(fake_recon_highs, recon_imgs.max(dim=3).values)
+            # errG += focused_rec_loss
+
+            # focused_loss = nn.L1Loss(reduction='sum')
+            # zeroes = torch.zeros_like(fake_recon)
+            # zeroes[:,:,:,random.choice(list(range(fake_recon.shape[3])))] = 1
+            # alphas = [1/300, 1/400, 1/500, 1/800, 1/1200, 1/2000, 1/3000]
+            # focused_rec_loss = alphas[len(self.Gs)]*focused_loss(fake_recon * zeroes, recon_imgs * zeroes)
+            # errG += focused_rec_loss
+
             # report loss
-            tqdm_dict = {"g_loss": errG.item(), "rec_loss": rec_loss.mean().item()}
+            tqdm_dict = {"g_loss": errG.item(), "rec_loss": rec_loss.item(), 'lr': self.trainer.optimizers[optimizer_idx].param_groups[0]['lr']}
             output = OrderedDict({"loss": errG, "progress_bar": tqdm_dict})
             # log tqdm dict
             if ((self.current_epoch % 25 == 0 or self.current_epoch == self.trainer.max_epochs - 1) 
@@ -475,7 +492,8 @@ class SinGAN(pl.LightningModule):
             gradient_penalty = functions.calc_gradient_penalty(self.discriminator, real_imgs, fake, self.opt.lambda_grad, self.device)
             # report loss
             d_loss = errD_real + errD_fake + gradient_penalty
-            tqdm_dict = {'d_loss': d_loss.item(), 'fake_score': output_fake.mean().item(), 'real_score': output_real.mean().item()}
+            tqdm_dict = {'d_loss': d_loss.item(), 'fake_score': output_fake.mean().item(), 'real_score': output_real.mean().item(), 
+                         'lr': self.trainer.optimizers[optimizer_idx].param_groups[0]['lr']}
             if ((self.current_epoch % 25 == 0 or self.current_epoch == self.trainer.max_epochs - 1) 
                 and batch_idx == self.opt.Gsteps + self.opt.Dsteps - 1):
                 print(f"scale {len(self.Gs)}: {self.current_epoch}/{self.trainer.max_epochs}", tqdm_dict)
@@ -513,8 +531,8 @@ class SinGAN(pl.LightningModule):
             schedulerG = torch.optim.lr_scheduler.MultiStepLR(optimizer=optimizerG,milestones=[0.8*self.opt.niter],gamma=self.opt.gamma)
 
         return (
-            {'optimizer': optimizerG, 'frequency': self.opt.Gsteps, 'lr_scheduler': { "scheduler": schedulerG, "interval": "epoch" }},
-            {'optimizer': optimizerD, 'frequency': self.opt.Dsteps, 'lr_scheduler': { "scheduler": schedulerD, "interval": "epoch" }}
+            {'optimizer': optimizerG, 'frequency': self.opt.Gsteps, 'lr_scheduler': { "scheduler": schedulerG, "interval": "step", "frequency": self.opt.Gsteps }},
+            {'optimizer': optimizerD, 'frequency': self.opt.Dsteps, 'lr_scheduler': { "scheduler": schedulerD, "interval": "step", "frequency": self.opt.Dsteps }}
         )
 
     def train_dataloader(self):
