@@ -396,10 +396,10 @@ def load_trained_pyramid(opt, mode_='train'):
     if opt.train_dir:
         dir = 'TrainedModels/%s/%s' % (opt.input_name[:-4], opt.train_dir)
     if(os.path.exists(dir)):
-        Gs = torch.load('%s/Gs.pth' % dir)
-        Zs = torch.load('%s/Zs.pth' % dir)
-        reals = torch.load('%s/reals.pth' % dir)
-        NoiseAmp = torch.load('%s/NoiseAmp.pth' % dir)
+        Gs = torch.load('%s/Gs.pth' % dir, map_location=torch.device('cpu'))
+        Zs = torch.load('%s/Zs.pth' % dir, map_location=torch.device('cpu'))
+        reals = torch.load('%s/reals.pth' % dir, map_location=torch.device('cpu'))
+        NoiseAmp = torch.load('%s/NoiseAmp.pth' % dir, map_location=torch.device('cpu'))
     else:
         print('no appropriate trained model is exist, please train first')
     opt.mode = mode

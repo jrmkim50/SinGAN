@@ -29,7 +29,8 @@ import numpy as np
 import torch
 from scipy import linalg
 #from scipy.misc import imread
-from matplotlib.pyplot import imread
+# from matplotlib.pyplot import imread
+import PIL.Image as Image
 from torch.nn.functional import adaptive_avg_pool2d
 
 try:
@@ -49,6 +50,7 @@ parser.add_argument('--path2real', type=str, help=('Path to the real images'))
 parser.add_argument('--path2fake', type=str, help=('Path to generated images'))
 parser.add_argument('-c', '--gpu', default='', type=str, help='GPU to use (leave blank for CPU only)')
 parser.add_argument('--images_suffix', default='jpg', type=str, help='image file suffix')
+parser.add_argument('--save_file', type=str, required=True, help='file to save stats to')
 
 
 def get_activations(files, model, batch_size=1, dims=64,
@@ -94,14 +96,15 @@ def get_activations(files, model, batch_size=1, dims=64,
         start = i * batch_size
         end = start + batch_size
 
-        images = np.array([imread(str(f)).astype(np.float32)
+        images = np.array([np.array(Image.open(str(f))).astype(np.float32)
                            for f in files[start:end]])
 
         images = images[:,:,:,0:3]
         # Reshape to (n_images, 3, height, width)
         images = images.transpose((0, 3, 1, 2))
         #images = images[0,:,:,:]
-        images /= 255
+        # images /= 255
+        images /= images.max()
 
         batch = torch.from_numpy(images).type(torch.FloatTensor)
         if cuda:
@@ -258,5 +261,5 @@ if __name__ == '__main__':
     sifid_values = calculate_sifid_given_paths(path1,path2,1,args.gpu!='',64,suffix)
 
     sifid_values = np.asarray(sifid_values,dtype=np.float32)
-    numpy.save('SIFID', sifid_values)
+    numpy.save(f'SIFID{args.save_file}', sifid_values)
     print('SIFID: ', sifid_values.mean(), '+/-', sifid_values.std())

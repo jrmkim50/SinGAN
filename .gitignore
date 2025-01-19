@@ -9,5 +9,14 @@ singan_env
 Input/Images/*
 test.py
 *.sh
-sifid_images/*
+sifid_images/
 monai_wholebody_ct/*
+sharpened_imgs/*
+sharpened_imgs_no_tz/*
+temp/*
+user\ study/*
+neurips_images/*
+*.npy
+*/*.nii.gz
+*/*.png
+*.png
